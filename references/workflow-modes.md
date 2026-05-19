@@ -29,11 +29,25 @@ Answer flow:
 1. Decide whether the vault alone is enough.
 2. Read the smallest relevant set of source, knowledge, project, and system notes.
 3. Distinguish between source-backed facts, vault-level synthesis, and claims that still need fresh verification.
-4. Answer clearly and conservatively.
+4. If the question is current, contested, high-impact, or asks for external verification, use a fresh-check path when an external search companion such as `anysearch` is available.
+5. Answer clearly and conservatively.
 
 Default rule:
 
 - do not create or update notes unless the user explicitly asks
+- do not send private vault content to external search providers unless the user explicitly approves
+
+### `fresh-check` path inside `answer`
+
+Use `fresh-check` when the vault may be stale or insufficient.
+
+Preferred behavior:
+
+1. Start from the vault so the answer remains grounded in the user's existing context.
+2. Form the narrowest external queries needed to verify the claim.
+3. Use `anysearch` only when external freshness, vertical search, or batch discovery adds value.
+4. Label external results as fresh evidence candidates.
+5. Do not write the result back unless the user asks for filing or the workflow moves into `ingest`.
 
 ## `ingest`
 
@@ -51,6 +65,17 @@ Default rule:
 
 - do not spread a single source across many notes unless the value is clear
 - do not append low-value noise to `log.md`
+
+### Source discovery inside `ingest`
+
+Use optional external search before or during ingest when:
+
+- the supplied source is weak, partial, or disputed
+- the user asks for corroboration
+- the target knowledge note needs stronger evidence coverage
+- a project note needs current external facts
+
+If `anysearch` is available, use it for external discovery and vertical searches. Save or cite only sources that pass the normal source-note and evidence rules.
 
 ## `audit`
 
@@ -92,11 +117,23 @@ Lint checklist:
 - stale or weak synthesis
 - schema, index, or log drift when those files exist
 - active log bloat and rotation hygiene when the vault uses `log.md`
+- evidence gaps that may benefit from external source discovery
 
 Default rule:
 
 - report findings first
 - do not repair automatically unless the user asks for fixes or the task already includes repair
+
+### Evidence-gap search inside `lint`
+
+When lint finds weak or unverified knowledge claims, optionally use `anysearch` to discover candidate sources.
+
+Rules:
+
+- do not auto-promote discovered results into knowledge notes
+- report candidate sources separately from verified fixes
+- only update source or knowledge notes after the user asks for repair or ingest
+- avoid sending sensitive vault content as search queries
 
 ### Log rotation inside `audit`
 

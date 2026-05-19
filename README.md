@@ -48,6 +48,7 @@ Inside `audit`, use `lint` as the default read-first health-check path.
 - Write-safe: require planning for medium-risk writes and confirmation for high-risk writes
 - Companion-skill driven: use dedicated Obsidian skills for concrete format and vault actions
 - Log-aware: treat `log.md` as an active maintenance log that can be rotated and archived over time
+- Search-aware: optionally use AnySearch for fresh-checks, source discovery, vertical search, and evidence-gap investigation
 
 ## Required Companion Skills
 
@@ -112,6 +113,7 @@ Before using this skill, make sure your environment already has these companion 
 Recommended:
 
 - `defuddle`
+- `anysearch`
 
 If your environment does not bundle them by default, install them from your Obsidian skills source first.
 
@@ -150,6 +152,18 @@ obsidian-wiki-skill/
 
 If those files are present and the companion skills are available, the skill is ready to use.
 
+### Optional AnySearch Setup
+
+AnySearch is optional. The skill works without it, but AnySearch can improve current-event checks, vertical search, batch source discovery, and evidence-gap investigations.
+
+Install the AnySearch skill separately if your environment supports companion skills:
+
+```bash
+git clone https://github.com/anysearch-ai/anysearch-skill.git /path/to/anysearch
+```
+
+AnySearch supports anonymous access with lower rate limits. For higher limits, configure `ANYSEARCH_API_KEY` following the AnySearch skill's own README.
+
 ## Usage
 
 Use this skill when you want Codex to work inside an existing Obsidian vault as a knowledge maintainer rather than a generic editor.
@@ -167,6 +181,7 @@ Example prompts:
 - `Use $obsidian-wiki-skill to ingest this article into my source and knowledge notes.`
 - `Use $obsidian-wiki-skill to audit my vault for weak evidence and navigation drift.`
 - `Use $obsidian-wiki-skill to lint my Obsidian vault and report broken structure, weak evidence, and index drift.`
+- `Use $obsidian-wiki-skill with anysearch to fresh-check this stale knowledge note before updating it.`
 - `Use $obsidian-wiki-skill to answer this question from my vault without writing back.`
 
 ## Validation

@@ -43,3 +43,29 @@ Use `defuddle` before ingest when a webpage should become a clean Markdown sourc
 Use it to reduce clutter and preserve the source layer in a vault-friendly format.
 
 If `defuddle` is unavailable, state that limitation before using a weaker fallback.
+
+## `anysearch`
+
+Use `anysearch` as an optional external search companion.
+
+Good fit:
+
+- fresh-checks for current, contested, or high-impact claims
+- source discovery before ingest
+- evidence-gap investigation during `audit -> lint`
+- vertical searches for domains such as code, finance, academic, legal, business, IP, and security
+- batch search for several independent source-discovery questions
+- URL extraction when AnySearch is already the chosen search path
+
+Do not use it for:
+
+- local vault search
+- private vault content search
+- queries containing credentials, private notes, personal data, or business-sensitive details unless the user explicitly approves the disclosure
+
+Routing rules:
+
+- Use `obsidian-cli` for local vault search.
+- Use `defuddle` for ordinary webpage cleanup when the user already provided a URL.
+- Use `anysearch` when the task needs external discovery, freshness, vertical search, or batch search.
+- Treat AnySearch results as candidate sources; route durable material back through the source-note and evidence workflow before writing knowledge notes.
