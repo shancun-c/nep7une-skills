@@ -85,12 +85,11 @@ skills:
     description: Maintain and evolve Obsidian-based knowledge vaults with orientation, ingest, answer, and audit workflows.
     runtimes:
       codex:
-        install_path: ~/.codex/skills/obsidian-wiki-skill
+        install_path: ~/.codex/skills/nep7une-skills/obsidian-wiki-skill
       hermes:
-        category: research
-        install_path: ~/.hermes/skills/research/obsidian-wiki-skill
+        install_path: ~/.hermes/skills/nep7une-skills/obsidian-wiki-skill
       openclaw:
-        install_path: ./skills/obsidian-wiki-skill
+        install_path: ./skills/nep7une-skills/obsidian-wiki-skill
 ```
 
 - [ ] **Step 2: Rewrite top-level README**
@@ -128,8 +127,8 @@ Expected: scripts are executable.
 ## Task 4: Validate and Sync
 
 **Files:**
-- Runtime target: `~/.codex/skills/obsidian-wiki-skill`
-- Runtime target: `~/.hermes/skills/research/obsidian-wiki-skill`
+- Runtime target: `~/.codex/skills/nep7une-skills/obsidian-wiki-skill`
+- Runtime target: `~/.hermes/skills/nep7une-skills/obsidian-wiki-skill`
 
 - [ ] **Step 1: Validate canonical skill**
 
@@ -169,8 +168,8 @@ Expected: installed copies update from canonical skill source.
 Run:
 
 ```bash
-PYTHONPATH=.vendor/python python3 /Users/wenweikun/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Users/wenweikun/.codex/skills/obsidian-wiki-skill
-PYTHONPATH=.vendor/python python3 /Users/wenweikun/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Users/wenweikun/.hermes/skills/research/obsidian-wiki-skill
+PYTHONPATH=.vendor/python python3 /Users/wenweikun/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Users/wenweikun/.codex/skills/nep7une-skills/obsidian-wiki-skill
+PYTHONPATH=.vendor/python python3 /Users/wenweikun/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Users/wenweikun/.hermes/skills/nep7une-skills/obsidian-wiki-skill
 ```
 
 Expected: both return `Skill is valid!`

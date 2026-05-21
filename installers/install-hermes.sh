@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 SKILL_NAME="obsidian-wiki-skill"
-CATEGORY="research"
+COLLECTION_NAME="nep7une-skills"
 TARGET_ROOT="${HERMES_HOME:-$HOME/.hermes}/skills"
 TARGET_PATH=""
 DRY_RUN=0
@@ -16,9 +16,9 @@ Usage: installers/install-hermes.sh [options]
 
 Options:
   --skill NAME       Skill slug to install. Default: obsidian-wiki-skill
-  --category NAME    Hermes category directory. Default: research
+  --collection NAME  Collection namespace. Default: nep7une-skills
   --skills-dir DIR   Hermes skills root. Default: ${HERMES_HOME:-$HOME/.hermes}/skills
-  --target DIR       Full target skill directory. Overrides --category and --skills-dir.
+  --target DIR       Full target skill directory. Overrides --collection and --skills-dir.
   --dry-run          Print and validate without writing files.
   -h, --help         Show this help.
 USAGE
@@ -30,8 +30,8 @@ while [[ $# -gt 0 ]]; do
       SKILL_NAME="${2:?Missing value for --skill}"
       shift 2
       ;;
-    --category)
-      CATEGORY="${2:?Missing value for --category}"
+    --collection)
+      COLLECTION_NAME="${2:?Missing value for --collection}"
       shift 2
       ;;
     --skills-dir)
@@ -60,7 +60,7 @@ done
 
 SOURCE="$REPO_ROOT/skills/$SKILL_NAME"
 if [[ -z "$TARGET_PATH" ]]; then
-  TARGET_PATH="$TARGET_ROOT/$CATEGORY/$SKILL_NAME"
+  TARGET_PATH="$TARGET_ROOT/$COLLECTION_NAME/$SKILL_NAME"
 fi
 
 if [[ ! -f "$SOURCE/SKILL.md" ]]; then
@@ -69,6 +69,7 @@ if [[ ! -f "$SOURCE/SKILL.md" ]]; then
 fi
 
 echo "Runtime: Hermes"
+echo "Collection: $COLLECTION_NAME"
 echo "Skill:   $SKILL_NAME"
 echo "Source:  $SOURCE"
 echo "Target:  $TARGET_PATH"

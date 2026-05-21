@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 SKILL_NAME="obsidian-wiki-skill"
+COLLECTION_NAME="nep7une-skills"
 WORKSPACE=""
 SKILLS_DIR=""
 DRY_RUN=0
@@ -16,8 +17,9 @@ Usage: installers/install-openclaw.sh --target WORKSPACE [options]
 
 Options:
   --skill NAME       Skill slug to install. Default: obsidian-wiki-skill
-  --target DIR       OpenClaw workspace directory. Installs into DIR/skills/NAME.
-  --skills-dir DIR   Exact skills root. Installs into DIR/NAME.
+  --collection NAME  Collection namespace. Default: nep7une-skills
+  --target DIR       OpenClaw workspace directory. Installs into DIR/skills/COLLECTION/NAME.
+  --skills-dir DIR   Exact skills root. Installs into DIR/COLLECTION/NAME.
   --dry-run          Print and validate without writing files.
   -h, --help         Show this help.
 USAGE
@@ -27,6 +29,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --skill)
       SKILL_NAME="${2:?Missing value for --skill}"
+      shift 2
+      ;;
+    --collection)
+      COLLECTION_NAME="${2:?Missing value for --collection}"
       shift 2
       ;;
     --target)
@@ -66,9 +72,9 @@ fi
 
 SOURCE="$REPO_ROOT/skills/$SKILL_NAME"
 if [[ -n "$WORKSPACE" ]]; then
-  TARGET_PATH="$WORKSPACE/skills/$SKILL_NAME"
+  TARGET_PATH="$WORKSPACE/skills/$COLLECTION_NAME/$SKILL_NAME"
 else
-  TARGET_PATH="$SKILLS_DIR/$SKILL_NAME"
+  TARGET_PATH="$SKILLS_DIR/$COLLECTION_NAME/$SKILL_NAME"
 fi
 
 if [[ ! -f "$SOURCE/SKILL.md" ]]; then
@@ -77,6 +83,7 @@ if [[ ! -f "$SOURCE/SKILL.md" ]]; then
 fi
 
 echo "Runtime: OpenClaw"
+echo "Collection: $COLLECTION_NAME"
 echo "Skill:   $SKILL_NAME"
 echo "Source:  $SOURCE"
 echo "Target:  $TARGET_PATH"

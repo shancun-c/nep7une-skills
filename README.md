@@ -2,7 +2,13 @@
 
 Personal AgentSkills collection maintained by nep7une.
 
-This repository is a skills collection, not a single skill folder. Each installable skill lives under `skills/<skill-name>/` and contains its own `SKILL.md`.
+This repository is a skills collection, not a single skill folder. Each installable source skill lives under `skills/<skill-name>/` and contains its own `SKILL.md`.
+
+Runtime installers place skills under a collection namespace:
+
+```text
+<runtime-skills-root>/nep7une-skills/<skill-name>
+```
 
 ## Available Skills
 
@@ -56,7 +62,7 @@ Install one skill:
 The default target is:
 
 ```text
-~/.codex/skills/obsidian-wiki-skill
+~/.codex/skills/nep7une-skills/obsidian-wiki-skill
 ```
 
 ### Hermes
@@ -68,7 +74,7 @@ hermes skills tap add shancun-c/nep7une-skills
 hermes skills install shancun-c/nep7une-skills/obsidian-wiki-skill
 ```
 
-For a local filesystem install that preserves the current `research` category convention:
+For a local filesystem install:
 
 ```bash
 ./installers/install-hermes.sh
@@ -77,7 +83,7 @@ For a local filesystem install that preserves the current `research` category co
 The default target is:
 
 ```text
-~/.hermes/skills/research/obsidian-wiki-skill
+~/.hermes/skills/nep7une-skills/obsidian-wiki-skill
 ```
 
 ### OpenClaw
@@ -91,7 +97,7 @@ Install into an OpenClaw workspace:
 This writes the skill to:
 
 ```text
-/path/to/openclaw/workspace/skills/obsidian-wiki-skill
+/path/to/openclaw/workspace/skills/nep7une-skills/obsidian-wiki-skill
 ```
 
 You can also install into a custom skills root:

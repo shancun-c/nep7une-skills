@@ -8,9 +8,8 @@ skills:
     description: Maintain and evolve Obsidian-based knowledge vaults with orientation, ingest, answer, and audit workflows.
     runtimes:
       codex:
-        install_path: ~/.codex/skills/obsidian-wiki-skill
+        install_path: ~/.codex/skills/nep7une-skills/obsidian-wiki-skill
       hermes:
-        category: research
-        install_path: ~/.hermes/skills/research/obsidian-wiki-skill
+        install_path: ~/.hermes/skills/nep7une-skills/obsidian-wiki-skill
       openclaw:
-        install_path: ./skills/obsidian-wiki-skill
+        install_path: ./skills/nep7une-skills/obsidian-wiki-skill

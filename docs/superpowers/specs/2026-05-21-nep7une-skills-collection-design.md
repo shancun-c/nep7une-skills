@@ -56,9 +56,9 @@ The canonical skill should not include process docs, design notes, changelogs, o
 
 Initial targets:
 
-- Codex: `~/.codex/skills/<skill-name>`
-- Hermes: `~/.hermes/skills/research/<skill-name>` by default
-- OpenClaw: workspace-local `./skills/<skill-name>` or user-provided target directory
+- Codex: `~/.codex/skills/nep7une-skills/<skill-name>`
+- Hermes: `~/.hermes/skills/nep7une-skills/<skill-name>`
+- OpenClaw: workspace-local `./skills/nep7une-skills/<skill-name>` or user-provided target directory
 
 The scripts should accept a skill name or install all skills. They should avoid deleting unrelated user files outside the target skill directory.
 
@@ -96,7 +96,7 @@ hermes skills tap add shancun-c/nep7une-skills
 hermes skills install shancun-c/nep7une-skills/obsidian-wiki-skill
 ```
 
-The local installer may still copy the skill to `~/.hermes/skills/research/obsidian-wiki-skill` to preserve the user's current category convention.
+The local installer copies the skill to `~/.hermes/skills/nep7une-skills/obsidian-wiki-skill` so collection-owned skills stay grouped together.
 
 ### OpenClaw
 
@@ -110,7 +110,7 @@ Avoid OpenClaw-specific frontmatter until needed. Keep `name` and `description` 
 
 ### Codex
 
-Codex uses `~/.codex/skills/<skill-name>`. The Codex installer should sync from `skills/<skill-name>/` into that location.
+Codex installs this collection under `~/.codex/skills/nep7une-skills/<skill-name>`. The Codex installer should sync from `skills/<skill-name>/` into that namespaced location.
 
 ## GitHub Changes
 
@@ -164,7 +164,7 @@ Before considering migration complete:
 
 - `quick_validate.py skills/obsidian-wiki-skill` passes.
 - Codex installed copy contains the migrated skill files.
-- Hermes installed copy contains the migrated skill files while preserving Hermes-specific adaptation if needed.
+- Hermes installed copy contains the migrated skill files under `~/.hermes/skills/nep7une-skills/`.
 - Top-level README no longer presents the repository as a single skill.
 - GitHub remote points to `shancun-c/nep7une-skills`.
 - `git status -sb` is clean after commit and push.
@@ -172,6 +172,6 @@ Before considering migration complete:
 ## Open Questions Resolved
 
 - The repository will use `skills/<skill-name>/`, not `research/<skill-name>/`, as its canonical layout.
-- Runtime categories such as Hermes `research/` are installer concerns, not repository layout concerns.
+- Runtime installs use the shared `nep7une-skills/<skill-name>` namespace instead of runtime-specific categories such as Hermes `research/`.
 - `obsidian-wiki-skill` remains the installed skill name.
 - The collection should optimize for batch installation while remaining manually inspectable and safe.
