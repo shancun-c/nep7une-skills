@@ -1,5 +1,20 @@
 # Companion Skill Routing
 
+Use this file to map this orchestration skill onto the execution capabilities available in the current runtime. Do not assume every runtime exposes the same companion skills.
+
+## `obsidian`
+
+Use `obsidian` when running in Hermes or another runtime that exposes a filesystem-first Obsidian skill.
+
+Good fit:
+
+- reading and editing Markdown notes
+- preserving vault-local folder and naming conventions
+- searching within an Obsidian vault through filesystem tools
+- applying safe, targeted note changes
+
+If a lower-level Codex-style companion skill is unavailable, prefer the local `obsidian` skill over hand-rolling Obsidian conventions.
+
 ## `obsidian-markdown`
 
 Use `obsidian-markdown` when writing or editing Obsidian notes that depend on:

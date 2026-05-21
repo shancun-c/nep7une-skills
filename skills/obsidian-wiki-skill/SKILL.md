@@ -1,6 +1,6 @@
 ---
 name: obsidian-wiki-skill
-description: Maintain and evolve Obsidian-based knowledge vaults using a host-aware workflow for orientation, source ingest, answering, and audit. Use when Codex needs to work inside an existing Obsidian vault or Markdown knowledge system to connect source notes, knowledge notes, project notes, and system notes; maintain schema, index, or log conventions; run vault linting or health checks; audit vault structure or evidence quality; or perform vault-aware knowledge maintenance with required companion skills such as obsidian-markdown, obsidian-cli, obsidian-bases, and json-canvas, plus optional search companions such as anysearch for fresh-checks and source discovery.
+description: Maintain and evolve Obsidian-based knowledge vaults using a host-aware workflow for orientation, source ingest, answering, and audit. Use when an agent needs to work inside an existing Obsidian vault or Markdown knowledge system to connect source notes, knowledge notes, project notes, and system notes; maintain schema, index, or log conventions; run vault linting or health checks; audit vault structure or evidence quality; or perform vault-aware knowledge maintenance with available Obsidian, Markdown, filesystem, canvas, base, and search companion skills.
 ---
 
 # Obsidian Wiki Skill
@@ -20,16 +20,23 @@ This skill decides:
 
 This skill does not replace low-level Obsidian format or CLI skills.
 
-## Required Companion Skills
+## Execution Companions
 
-These companion skills are required execution dependencies:
+This skill is an orchestration layer. Use the host runtime's available execution skills or tools for concrete file operations.
+
+Codex companion skills:
 
 - `obsidian-markdown`
 - `obsidian-cli`
 - `obsidian-bases`
 - `json-canvas`
 
-Recommended companion skill:
+Hermes or other AgentSkills runtimes:
+
+- use the local `obsidian` skill when available
+- otherwise use equivalent filesystem, Markdown, search, canvas, and structured-data tools
+
+Recommended webpage-ingest companion:
 
 - `defuddle`
 
@@ -37,7 +44,7 @@ Optional search companion:
 
 - `anysearch`
 
-If a task requires Obsidian-specific note syntax, vault CLI actions, `.base` editing, or `.canvas` editing and the matching companion skill is unavailable, say so clearly and stop before improvising a lossy substitute.
+If a task requires Obsidian-specific note syntax, vault actions, `.base` editing, or `.canvas` editing and the matching execution capability is unavailable, say so clearly and stop before improvising a lossy substitute.
 
 Read [companion-skill-routing.md](references/companion-skill-routing.md) before format-specific or vault-specific execution.
 
@@ -288,11 +295,12 @@ Rules:
 
 Use this skill to decide what should happen.
 
-Use companion skills to perform the actual Obsidian-specific work:
+Use available runtime companion skills or tools to perform the actual Obsidian-specific work:
 
 - `obsidian-markdown` for note structure and Obsidian syntax
 - `obsidian-cli` for vault search, note operations, and live Obsidian actions
 - `obsidian-bases` for `.base` files
 - `json-canvas` for `.canvas` files
+- `obsidian` for Hermes-style filesystem-first Obsidian workflows when available
 - `defuddle` for webpage cleanup before ingest
 - `anysearch` for optional external search, vertical search, batch search, URL extraction, fresh-checks, and source discovery

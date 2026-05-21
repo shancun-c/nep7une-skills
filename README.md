@@ -1,36 +1,136 @@
-# Obsidian Wiki Skill
+# nep7une-skills
 
-A vault-aware knowledge maintenance skill for Obsidian-based Markdown systems.
+Personal AgentSkills collection maintained by nep7une.
 
-This project turns the LLM Wiki idea into a more practical skill for real Obsidian vaults. Instead of assuming a fixed wiki folder structure, it starts by understanding the user's existing vault and then works through four modes: `orient`, `answer`, `ingest`, and `audit`, with `lint` as a built-in sub-mode under `audit`.
+This repository is a skills collection, not a single skill folder. Each installable skill lives under `skills/<skill-name>/` and contains its own `SKILL.md`.
 
-## Why This Exists
+## Available Skills
 
-The original `llm-wiki` pattern is strong on the core idea of persistent, compounding knowledge. In practice, many Obsidian users already have their own vault structure, templates, indexes, and note taxonomy. A good skill should adapt to that reality instead of forcing a brand-new information architecture.
+| Skill | Path | Purpose |
+| --- | --- | --- |
+| `obsidian-wiki-skill` | `skills/obsidian-wiki-skill/` | Maintain and evolve Obsidian-based knowledge vaults with `orient`, `answer`, `ingest`, and `audit` workflows. |
 
-This skill is designed to:
+## Repository Layout
 
-- respect existing vault structure and naming habits
-- treat Obsidian as the host environment
-- distinguish source preservation from knowledge synthesis
-- avoid silently promoting chat answers into stable vault knowledge
-- add stronger evidence, safety, and write-discipline rules
-- route low-level execution to dedicated Obsidian companion skills
+```text
+.
+├── README.md
+├── registry.yaml
+├── installers/
+│   ├── install-codex.sh
+│   ├── install-hermes.sh
+│   └── install-openclaw.sh
+├── skills/
+│   └── obsidian-wiki-skill/
+│       ├── SKILL.md
+│       ├── agents/
+│       └── references/
+└── docs/
+    ├── obsidian-wiki-skill/
+    └── superpowers/
+```
 
-## What The Skill Does
+## Install
 
-This skill acts as an orchestration layer for Obsidian knowledge work.
+Clone the collection:
 
-It decides:
+```bash
+git clone https://github.com/shancun-c/nep7une-skills.git
+cd nep7une-skills
+```
 
-- what mode the current request belongs to
-- whether the task should remain read-only or become a write workflow
-- which note layer should receive new information
-- which Obsidian companion skill should perform the concrete operation
+### Codex
 
-It does not try to replace low-level Obsidian syntax or CLI skills.
+Install all currently supported Codex skills:
 
-## Core Modes
+```bash
+./installers/install-codex.sh
+```
+
+Install one skill:
+
+```bash
+./installers/install-codex.sh --skill obsidian-wiki-skill
+```
+
+The default target is:
+
+```text
+~/.codex/skills/obsidian-wiki-skill
+```
+
+### Hermes
+
+Hermes can use this repository as a custom skill tap:
+
+```bash
+hermes skills tap add shancun-c/nep7une-skills
+hermes skills install shancun-c/nep7une-skills/obsidian-wiki-skill
+```
+
+For a local filesystem install that preserves the current `research` category convention:
+
+```bash
+./installers/install-hermes.sh
+```
+
+The default target is:
+
+```text
+~/.hermes/skills/research/obsidian-wiki-skill
+```
+
+### OpenClaw
+
+Install into an OpenClaw workspace:
+
+```bash
+./installers/install-openclaw.sh --target /path/to/openclaw/workspace
+```
+
+This writes the skill to:
+
+```text
+/path/to/openclaw/workspace/skills/obsidian-wiki-skill
+```
+
+You can also install into a custom skills root:
+
+```bash
+./installers/install-openclaw.sh --skills-dir /path/to/skills
+```
+
+## Dry Run
+
+All installer scripts support `--dry-run`:
+
+```bash
+./installers/install-codex.sh --dry-run
+./installers/install-hermes.sh --dry-run
+./installers/install-openclaw.sh --target /tmp/openclaw-workspace --dry-run
+```
+
+## Validate
+
+Validate an individual skill with the Codex skill validator:
+
+```bash
+PYTHONPATH=.vendor/python \
+python3 /Users/wenweikun/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
+  skills/obsidian-wiki-skill
+```
+
+Expected output:
+
+```text
+Skill is valid!
+```
+
+## Obsidian Wiki Skill
+
+`obsidian-wiki-skill` is a vault-aware knowledge maintenance skill for Obsidian-based Markdown systems.
+
+It turns the LLM Wiki idea into a practical workflow for real Obsidian vaults. Instead of assuming a fixed wiki folder structure, it starts by understanding the user's existing vault and then works through four modes:
 
 - `orient`: understand the vault before acting
 - `answer`: answer from vault context without writing by default
@@ -39,143 +139,33 @@ It does not try to replace low-level Obsidian syntax or CLI skills.
 
 Inside `audit`, use `lint` as the default read-first health-check path.
 
-## Design Principles
+### Companion Skills
 
-- Host-first: read the existing vault before making assumptions
-- Role-first: infer note roles from `type`, purpose, templates, and relationships rather than folder names alone
-- Conservative by default: keep `orient` and `answer` read-only
-- Evidence-aware: treat source notes as the evidence layer and knowledge notes as the conclusion layer
-- Write-safe: require planning for medium-risk writes and confirmation for high-risk writes
-- Companion-skill driven: use dedicated Obsidian skills for concrete format and vault actions
-- Log-aware: treat `log.md` as an active maintenance log that can be rotated and archived over time
-- Search-aware: optionally use AnySearch for fresh-checks, source discovery, vertical search, and evidence-gap investigation
+This skill is an orchestration layer. It uses whatever Obsidian execution companions are available in the host runtime.
 
-## Required Companion Skills
-
-This skill depends on the following execution-layer skills:
+Codex companions:
 
 - `obsidian-markdown`
 - `obsidian-cli`
 - `obsidian-bases`
 - `json-canvas`
 
-Recommended:
+Hermes or other AgentSkills runtimes:
 
-- `defuddle`
-
-If those skills are unavailable, this skill should not pretend to offer complete Obsidian-native behavior.
-
-These companion skills come from the Obsidian skill ecosystem, such as the public [`kepano/obsidian-skills`](https://github.com/kepano/obsidian-skills) repository or an environment that already bundles them.
-
-## Repository Layout
-
-```text
-.
-├── SKILL.md
-├── README.md
-├── agents/openai.yaml
-├── references/
-│   ├── workflow-modes.md
-│   ├── evidence-and-safety.md
-│   └── companion-skill-routing.md
-└── docs/
-    ├── SKILL.md
-    ├── karpathy-llm-wiki.md
-    ├── upgrade.md
-    └── superpowers/
-```
-
-## Key Files
-
-- [SKILL.md](SKILL.md): the actual skill definition
-- [agents/openai.yaml](agents/openai.yaml): UI metadata for the skill
-- [references/workflow-modes.md](references/workflow-modes.md): detailed behavior for `orient`, `answer`, `ingest`, and `audit`
-- [references/evidence-and-safety.md](references/evidence-and-safety.md): evidence policy, source trust, conflict handling, and write safety
-- [references/log-maintenance.md](references/log-maintenance.md): how to keep `log.md` useful as it grows
-- [references/companion-skill-routing.md](references/companion-skill-routing.md): when to invoke each companion Obsidian skill
-- [docs/SKILL.md](docs/SKILL.md): original upstream skill used as a baseline
-- [docs/karpathy-llm-wiki.md](docs/karpathy-llm-wiki.md): the core idea document
-- [docs/upgrade.md](docs/upgrade.md): analysis of what needed to change
-
-## Installation
-
-This repository is already the final skill folder. You do not need to generate or rearrange anything before installing it.
-
-### Prerequisites
-
-Before using this skill, make sure your environment already has these companion skills available:
-
-- `obsidian-markdown`
-- `obsidian-cli`
-- `obsidian-bases`
-- `json-canvas`
+- `obsidian`, when available
+- equivalent filesystem, Markdown, search, canvas, and structured-data tools
 
 Recommended:
 
 - `defuddle`
+
+Optional:
+
 - `anysearch`
 
-If your environment does not bundle them by default, install them from your Obsidian skills source first.
+These companion skills may come from the public [`kepano/obsidian-skills`](https://github.com/kepano/obsidian-skills) ecosystem or from an environment that already bundles them.
 
-### Install From GitHub
-
-Clone the repository:
-
-```bash
-git clone https://github.com/shancun-c/obsidian-wiki-skill.git
-cd obsidian-wiki-skill
-```
-
-Then place the folder where Codex can discover skills:
-
-```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-ln -s "$(pwd)" "${CODEX_HOME:-$HOME/.codex}/skills/obsidian-wiki-skill"
-```
-
-Or copy the folder directly:
-
-```bash
-cp -R /path/to/obsidian-wiki-skill "${CODEX_HOME:-$HOME/.codex}/skills/obsidian-wiki-skill"
-```
-
-### Verify Installation
-
-After installation, the target folder should contain at least:
-
-```text
-obsidian-wiki-skill/
-├── SKILL.md
-├── agents/openai.yaml
-└── references/
-```
-
-If those files are present and the companion skills are available, the skill is ready to use.
-
-### Optional AnySearch Setup
-
-AnySearch is optional. The skill works without it, but AnySearch can improve current-event checks, vertical search, batch source discovery, and evidence-gap investigations.
-
-Install the AnySearch skill separately if your environment supports companion skills:
-
-```bash
-git clone https://github.com/anysearch-ai/anysearch-skill.git /path/to/anysearch
-```
-
-AnySearch supports anonymous access with lower rate limits. For higher limits, configure `ANYSEARCH_API_KEY` following the AnySearch skill's own README.
-
-## Usage
-
-Use this skill when you want Codex to work inside an existing Obsidian vault as a knowledge maintainer rather than a generic editor.
-
-### Typical Workflow
-
-1. Open a task that references your Obsidian vault.
-2. Invoke `$obsidian-wiki-skill`.
-3. Let it orient to the vault first.
-4. Continue into `answer`, `ingest`, or `audit` depending on the task.
-
-Example prompts:
+### Example Prompts
 
 - `Use $obsidian-wiki-skill to orient to my Obsidian vault before we make changes.`
 - `Use $obsidian-wiki-skill to ingest this article into my source and knowledge notes.`
@@ -184,26 +174,9 @@ Example prompts:
 - `Use $obsidian-wiki-skill with anysearch to fresh-check this stale knowledge note before updating it.`
 - `Use $obsidian-wiki-skill to answer this question from my vault without writing back.`
 
-## Validation
+## Development Notes
 
-The skill was validated with the `skill-creator` quick validator.
-
-If you want to re-run validation locally:
-
-```bash
-python3 /path/to/skill-creator/scripts/quick_validate.py /path/to/obsidian-wiki-skill
-```
-
-If your Python environment does not already include `PyYAML`, install it first or provide it through `PYTHONPATH`.
-
-## Status
-
-This is an initial public version focused on:
-
-- host-aware Obsidian orientation
-- safe source ingest
-- conservative answer behavior
-- evidence and write-discipline rules
-- strong composition with Obsidian companion skills
-
-Future iterations can add helper scripts, forward tests, and more opinionated audit automation if repeated workflows justify them.
+- Canonical skill source lives under `skills/`.
+- Historical and design documents live under `docs/`.
+- Runtime installs should copy only the relevant skill directory, not the whole repository.
+- Keep `name: obsidian-wiki-skill` stable so existing invocations continue to work.

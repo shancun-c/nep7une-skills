@@ -1,0 +1,16 @@
+name: nep7une-skills
+description: Personal AgentSkills collection maintained by nep7une.
+repository: https://github.com/shancun-c/nep7une-skills
+skills:
+  - slug: obsidian-wiki-skill
+    title: Obsidian Wiki Skill
+    path: skills/obsidian-wiki-skill
+    description: Maintain and evolve Obsidian-based knowledge vaults with orientation, ingest, answer, and audit workflows.
+    runtimes:
+      codex:
+        install_path: ~/.codex/skills/obsidian-wiki-skill
+      hermes:
+        category: research
+        install_path: ~/.hermes/skills/research/obsidian-wiki-skill
+      openclaw:
+        install_path: ./skills/obsidian-wiki-skill
