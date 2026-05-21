@@ -116,6 +116,26 @@ All installer scripts support `--dry-run`:
 ./installers/install-openclaw.sh --target /tmp/openclaw-workspace --dry-run
 ```
 
+## Dependency Checks
+
+Installer scripts check skill dependencies by default before copying files.
+
+Dependency levels:
+
+- `required`: missing dependencies stop the install.
+- `recommended`: missing dependencies are reported but do not stop the install.
+- `optional`: missing dependencies are reported but do not stop the install.
+
+Skip dependency checks when you are intentionally bootstrapping a runtime:
+
+```bash
+./installers/install-codex.sh --skip-deps
+./installers/install-hermes.sh --skip-deps
+./installers/install-openclaw.sh --target /path/to/openclaw/workspace --skip-deps
+```
+
+For `obsidian-wiki-skill`, Codex expects `obsidian-markdown`, `obsidian-cli`, `obsidian-bases`, and `json-canvas` as required companions. Hermes and OpenClaw expect an `obsidian` execution skill as the required baseline. `defuddle` is recommended, and `anysearch` is optional.
+
 ## Validate
 
 Validate an individual skill with the Codex skill validator:

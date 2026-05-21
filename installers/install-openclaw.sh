@@ -3,12 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+. "$SCRIPT_DIR/lib.sh"
 
 SKILL_NAME="obsidian-wiki-skill"
 COLLECTION_NAME="nep7une-skills"
 WORKSPACE=""
 SKILLS_DIR=""
 DRY_RUN=0
+CHECK_DEPS=1
 
 usage() {
   cat <<'USAGE'
@@ -20,6 +22,8 @@ Options:
   --collection NAME  Collection namespace. Default: nep7une-skills
   --target DIR       OpenClaw workspace directory. Installs into DIR/skills/COLLECTION/NAME.
   --skills-dir DIR   Exact skills root. Installs into DIR/COLLECTION/NAME.
+  --check-deps       Check required/recommended/optional dependencies before install. Default.
+  --skip-deps        Skip dependency checks.
   --dry-run          Print and validate without writing files.
   -h, --help         Show this help.
 USAGE
@@ -42,6 +46,14 @@ while [[ $# -gt 0 ]]; do
     --skills-dir)
       SKILLS_DIR="${2:?Missing value for --skills-dir}"
       shift 2
+      ;;
+    --check-deps)
+      CHECK_DEPS=1
+      shift
+      ;;
+    --skip-deps)
+      CHECK_DEPS=0
+      shift
       ;;
     --dry-run)
       DRY_RUN=1
@@ -72,8 +84,10 @@ fi
 
 SOURCE="$REPO_ROOT/skills/$SKILL_NAME"
 if [[ -n "$WORKSPACE" ]]; then
+  TARGET_ROOT="$WORKSPACE/skills"
   TARGET_PATH="$WORKSPACE/skills/$COLLECTION_NAME/$SKILL_NAME"
 else
+  TARGET_ROOT="$SKILLS_DIR"
   TARGET_PATH="$SKILLS_DIR/$COLLECTION_NAME/$SKILL_NAME"
 fi
 
@@ -87,6 +101,12 @@ echo "Collection: $COLLECTION_NAME"
 echo "Skill:   $SKILL_NAME"
 echo "Source:  $SOURCE"
 echo "Target:  $TARGET_PATH"
+
+if [[ "$CHECK_DEPS" -eq 1 ]]; then
+  check_skill_dependencies openclaw "$TARGET_ROOT" "$SKILL_NAME"
+else
+  echo "Dependency check: skipped"
+fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "Dry run: no files written."

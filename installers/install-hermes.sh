@@ -3,12 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+. "$SCRIPT_DIR/lib.sh"
 
 SKILL_NAME="obsidian-wiki-skill"
 COLLECTION_NAME="nep7une-skills"
 TARGET_ROOT="${HERMES_HOME:-$HOME/.hermes}/skills"
 TARGET_PATH=""
 DRY_RUN=0
+CHECK_DEPS=1
 
 usage() {
   cat <<'USAGE'
@@ -19,6 +21,8 @@ Options:
   --collection NAME  Collection namespace. Default: nep7une-skills
   --skills-dir DIR   Hermes skills root. Default: ${HERMES_HOME:-$HOME/.hermes}/skills
   --target DIR       Full target skill directory. Overrides --collection and --skills-dir.
+  --check-deps       Check required/recommended/optional dependencies before install. Default.
+  --skip-deps        Skip dependency checks.
   --dry-run          Print and validate without writing files.
   -h, --help         Show this help.
 USAGE
@@ -41,6 +45,14 @@ while [[ $# -gt 0 ]]; do
     --target)
       TARGET_PATH="${2:?Missing value for --target}"
       shift 2
+      ;;
+    --check-deps)
+      CHECK_DEPS=1
+      shift
+      ;;
+    --skip-deps)
+      CHECK_DEPS=0
+      shift
       ;;
     --dry-run)
       DRY_RUN=1
@@ -73,6 +85,12 @@ echo "Collection: $COLLECTION_NAME"
 echo "Skill:   $SKILL_NAME"
 echo "Source:  $SOURCE"
 echo "Target:  $TARGET_PATH"
+
+if [[ "$CHECK_DEPS" -eq 1 ]]; then
+  check_skill_dependencies hermes "$TARGET_ROOT" "$SKILL_NAME"
+else
+  echo "Dependency check: skipped"
+fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "Dry run: no files written."

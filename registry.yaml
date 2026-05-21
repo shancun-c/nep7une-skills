@@ -6,6 +6,39 @@ skills:
     title: Obsidian Wiki Skill
     path: skills/obsidian-wiki-skill
     description: Maintain and evolve Obsidian-based knowledge vaults with orientation, ingest, answer, and audit workflows.
+    dependencies:
+      codex:
+        required:
+          - obsidian-markdown
+          - obsidian-cli
+          - obsidian-bases
+          - json-canvas
+        recommended:
+          - defuddle
+        optional:
+          - anysearch
+      hermes:
+        required:
+          - obsidian
+        recommended:
+          - obsidian-markdown
+          - obsidian-cli
+          - obsidian-bases
+          - json-canvas
+          - defuddle
+        optional:
+          - anysearch
+      openclaw:
+        required:
+          - obsidian
+        recommended:
+          - defuddle
+        optional:
+          - obsidian-markdown
+          - obsidian-cli
+          - obsidian-bases
+          - json-canvas
+          - anysearch
     runtimes:
       codex:
         install_path: ~/.codex/skills/nep7une-skills/obsidian-wiki-skill
