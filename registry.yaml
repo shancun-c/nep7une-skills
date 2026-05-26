@@ -46,3 +46,34 @@ skills:
         install_path: ~/.hermes/skills/nep7une-skills/obsidian-wiki-skill
       openclaw:
         install_path: ./skills/nep7une-skills/obsidian-wiki-skill
+  - slug: server-ops-skill
+    title: Server Ops Skill
+    path: skills/server-ops-skill
+    description: Safely operate SSH-accessible Linux servers with orientation, inspection, deployment, repair, rollback, and hardening workflows.
+    dependencies:
+      codex:
+        required: []
+        recommended: []
+        optional: []
+      hermes:
+        required: []
+        recommended: []
+        optional: []
+      openclaw:
+        required: []
+        recommended: []
+        optional: []
+    tools:
+      required:
+        - ssh
+      recommended:
+        - rsync
+        - scp
+        - ssh-keygen
+    runtimes:
+      codex:
+        install_path: ~/.codex/skills/nep7une-skills/server-ops-skill
+      hermes:
+        install_path: ~/.hermes/skills/nep7une-skills/server-ops-skill
+      openclaw:
+        install_path: ./skills/nep7une-skills/server-ops-skill

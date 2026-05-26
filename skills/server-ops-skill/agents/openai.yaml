@@ -1,0 +1,4 @@
+interface:
+  display_name: "Server Ops Skill"
+  short_description: "Safe SSH server operations"
+  default_prompt: "Use $server-ops-skill to inspect and manage my SSH-accessible server safely."

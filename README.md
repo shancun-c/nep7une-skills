@@ -15,6 +15,7 @@ Runtime installers place skills under a collection namespace:
 | Skill | Path | Purpose |
 | --- | --- | --- |
 | `obsidian-wiki-skill` | `skills/obsidian-wiki-skill/` | Maintain and evolve Obsidian-based knowledge vaults with `orient`, `answer`, `ingest`, and `audit` workflows. |
+| `server-ops-skill` | `skills/server-ops-skill/` | Safely operate SSH-accessible Linux servers with orientation, inspection, deployment, repair, rollback, and hardening workflows. |
 
 ## Repository Layout
 
@@ -27,7 +28,11 @@ Runtime installers place skills under a collection namespace:
 │   ├── install-hermes.sh
 │   └── install-openclaw.sh
 ├── skills/
-│   └── obsidian-wiki-skill/
+│   ├── obsidian-wiki-skill/
+│   │   ├── SKILL.md
+│   │   ├── agents/
+│   │   └── references/
+│   └── server-ops-skill/
 │       ├── SKILL.md
 │       ├── agents/
 │       └── references/
@@ -57,12 +62,13 @@ Install one skill:
 
 ```bash
 ./installers/install-codex.sh --skill obsidian-wiki-skill
+./installers/install-codex.sh --skill server-ops-skill
 ```
 
 The default target is:
 
 ```text
-~/.codex/skills/nep7une-skills/obsidian-wiki-skill
+~/.codex/skills/nep7une-skills/<skill-name>
 ```
 
 ### Hermes
@@ -72,6 +78,7 @@ Hermes can use this repository as a custom skill tap:
 ```bash
 hermes skills tap add shancun-c/nep7une-skills
 hermes skills install shancun-c/nep7une-skills/obsidian-wiki-skill
+hermes skills install shancun-c/nep7une-skills/server-ops-skill
 ```
 
 For a local filesystem install:
@@ -83,7 +90,7 @@ For a local filesystem install:
 The default target is:
 
 ```text
-~/.hermes/skills/nep7une-skills/obsidian-wiki-skill
+~/.hermes/skills/nep7une-skills/<skill-name>
 ```
 
 ### OpenClaw
@@ -97,7 +104,7 @@ Install into an OpenClaw workspace:
 This writes the skill to:
 
 ```text
-/path/to/openclaw/workspace/skills/nep7une-skills/obsidian-wiki-skill
+/path/to/openclaw/workspace/skills/nep7une-skills/<skill-name>
 ```
 
 You can also install into a custom skills root:
@@ -136,6 +143,8 @@ Skip dependency checks when you are intentionally bootstrapping a runtime:
 
 For `obsidian-wiki-skill`, Codex expects `obsidian-markdown`, `obsidian-cli`, `obsidian-bases`, and `json-canvas` as required companions. Hermes and OpenClaw expect an `obsidian` execution skill as the required baseline. `defuddle` is recommended, and `anysearch` is optional.
 
+For `server-ops-skill`, the runtime dependency is the local `ssh` command plus a configured SSH alias. `rsync`, `scp`, and `ssh-keygen` are recommended local tools for deployment and key management workflows.
+
 ## Validate
 
 Validate an individual skill with the Codex skill validator:
@@ -144,6 +153,8 @@ Validate an individual skill with the Codex skill validator:
 PYTHONPATH=.vendor/python \
 python3 /Users/wenweikun/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
   skills/obsidian-wiki-skill
+python3 /Users/wenweikun/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
+  skills/server-ops-skill
 ```
 
 Expected output:
@@ -200,9 +211,36 @@ These companion skills may come from the public [`kepano/obsidian-skills`](https
 - `Use $obsidian-wiki-skill with anysearch to fresh-check this stale knowledge note before updating it.`
 - `Use $obsidian-wiki-skill to answer this question from my vault without writing back.`
 
+## Server Ops Skill
+
+`server-ops-skill` is a safe SSH operations skill for Linux servers.
+
+It is designed for:
+
+- orienting to a remote server before taking action
+- inspecting systemd, Nginx, Docker, PM2, Node, Python, TLS, logs, ports, and project directories
+- planning deployments and rollbacks
+- repairing services with observe-first discipline
+- proposing hardening steps without silently changing access controls
+
+The skill defaults to an SSH alias named `nep7une-tokyo`, but the actual host, user, key, and authentication method must live in local private SSH configuration. Do not commit server credentials or private profiles to this repository.
+
+Local server profiles belong under ignored paths such as:
+
+```text
+.private/server-profiles/<ssh-alias>.md
+```
+
+Example prompts:
+
+- `Use $server-ops-skill to orient to nep7une-tokyo without making changes.`
+- `Use $server-ops-skill to inspect why my Nginx route is returning 502.`
+- `Use $server-ops-skill to plan a deployment for this Node service.`
+- `Use $server-ops-skill to roll back the last service change safely.`
+
 ## Development Notes
 
 - Canonical skill source lives under `skills/`.
 - Historical and design documents live under `docs/`.
 - Runtime installs should copy only the relevant skill directory, not the whole repository.
-- Keep `name: obsidian-wiki-skill` stable so existing invocations continue to work.
+- Keep skill `name` values stable so existing invocations continue to work.
