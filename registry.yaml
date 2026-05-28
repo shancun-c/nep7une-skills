@@ -46,6 +46,49 @@ skills:
         install_path: ~/.hermes/skills/nep7une-skills/obsidian-wiki-skill
       openclaw:
         install_path: ./skills/nep7une-skills/obsidian-wiki-skill
+  - slug: knowledge-canvas-sync
+    title: Knowledge Canvas Sync
+    path: skills/knowledge-canvas-sync
+    description: Daily sync of Obsidian knowledge canvas — extract new knowledge from source notes, create/update knowledge notes, maintain the visual knowledge graph. Supports open-domain knowledge extraction across any topic.
+    dependencies:
+      codex:
+        required:
+          - obsidian-canvas-creator
+          - obsidian-markdown
+        recommended:
+          - obsidian-wiki-skill
+          - json-canvas
+        optional:
+          - defuddle
+          - anysearch
+      hermes:
+        required:
+          - obsidian-canvas-creator
+          - obsidian
+        recommended:
+          - obsidian-markdown
+          - obsidian-wiki-skill
+          - json-canvas
+        optional:
+          - defuddle
+          - anysearch
+      openclaw:
+        required:
+          - obsidian-canvas-creator
+        recommended:
+          - obsidian-markdown
+          - obsidian
+          - json-canvas
+        optional:
+          - defuddle
+          - anysearch
+    runtimes:
+      codex:
+        install_path: ~/.codex/skills/nep7une-skills/knowledge-canvas-sync
+      hermes:
+        install_path: ~/.hermes/skills/nep7une-skills/knowledge-canvas-sync
+      openclaw:
+        install_path: ./skills/nep7une-skills/knowledge-canvas-sync
   - slug: server-ops-skill
     title: Server Ops Skill
     path: skills/server-ops-skill
