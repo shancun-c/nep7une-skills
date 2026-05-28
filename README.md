@@ -14,6 +14,7 @@ Runtime installers place skills under a collection namespace:
 
 | Skill | Path | Purpose |
 | --- | --- | --- |
+| `knowledge-canvas-sync` | `skills/knowledge-canvas-sync/` | Daily sync of Obsidian knowledge canvas — extract durable knowledge from source notes, maintain the visual knowledge graph, with color-verified canvas updates. |
 | `obsidian-wiki-skill` | `skills/obsidian-wiki-skill/` | Maintain and evolve Obsidian-based knowledge vaults with `orient`, `answer`, `ingest`, and `audit` workflows. |
 | `server-ops-skill` | `skills/server-ops-skill/` | Safely operate SSH-accessible Linux servers with orientation, inspection, deployment, repair, rollback, and hardening workflows. |
 
@@ -28,6 +29,10 @@ Runtime installers place skills under a collection namespace:
 │   ├── install-hermes.sh
 │   └── install-openclaw.sh
 ├── skills/
+│   ├── knowledge-canvas-sync/
+│   │   ├── SKILL.md
+│   │   └── scripts/
+│   │       └── verify-canvas-colors.py
 │   ├── obsidian-wiki-skill/
 │   │   ├── SKILL.md
 │   │   ├── agents/
@@ -61,6 +66,7 @@ Install all currently supported Codex skills:
 Install one skill:
 
 ```bash
+./installers/install-codex.sh --skill knowledge-canvas-sync
 ./installers/install-codex.sh --skill obsidian-wiki-skill
 ./installers/install-codex.sh --skill server-ops-skill
 ```
@@ -77,6 +83,7 @@ Hermes can use this repository as a custom skill tap:
 
 ```bash
 hermes skills tap add shancun-c/nep7une-skills
+hermes skills install shancun-c/nep7une-skills/knowledge-canvas-sync
 hermes skills install shancun-c/nep7une-skills/obsidian-wiki-skill
 hermes skills install shancun-c/nep7une-skills/server-ops-skill
 ```
@@ -162,6 +169,35 @@ Expected output:
 ```text
 Skill is valid!
 ```
+
+## Knowledge Canvas Sync
+
+`knowledge-canvas-sync` is a daily maintenance skill for Obsidian knowledge canvases.
+
+It scans newly ingested source notes, extracts durable knowledge insights, creates or updates evergreen knowledge notes, and maintains a living visual knowledge graph in a `.canvas` file — with color-coded nodes (yellow=new, cyan=established, purple=foundational) and relationship edges.
+
+Key features:
+
+- Extracts knowledge across any domain — not limited to pre-defined groups
+- Creates knowledge notes in `30 Knowledge/` with source traceability
+- Maintains the canvas at `99 System/Knowledge Canvas.canvas`
+- Includes `scripts/verify-canvas-colors.py` for post-write color validation
+- Designed for cron integration (daily at 09:00)
+
+### Companion Skills
+
+- `obsidian-canvas-creator` — required (canvas read/write, layout algorithms)
+- `obsidian-markdown` — required for Codex (knowledge note creation)
+- `obsidian-wiki-skill` — recommended (vault orientation)
+- `json-canvas` — recommended (canvas file manipulation)
+- `defuddle` — optional (web content extraction)
+- `anysearch` — optional (cross-verification)
+
+### Example Prompts
+
+- `Load knowledge-canvas-sync skill, then run the full workflow: scan today's source notes, extract new knowledge, update canvas, report changes.`
+- `Use knowledge-canvas-sync to scan my vault for new source notes and update the knowledge canvas.`
+- `Use knowledge-canvas-sync to verify all canvas colors match the conventions.`
 
 ## Obsidian Wiki Skill
 
