@@ -193,12 +193,17 @@ Do not force every note type into a uniform frontmatter schema.
 
 Use this workflow for new source material:
 
+0. **Parse external content**: when the source is a URL (WeChat, blog, news site), use `defuddle parse <url> --md` first to extract clean content. This is a pre-processing step before the vault-oriented workflow begins.
 1. Orient to the vault and identify where source material currently lives.
 2. Reuse existing source-note templates, naming rules, and metadata habits.
-3. Preserve or create the source-layer note first.
-4. Promote information into knowledge or project notes only when it is worth retaining beyond the source note.
-5. Update links, indexes, or log notes only when the vault already uses them or when the change materially improves navigation.
-6. Report what changed.
+3. Preserve or create the source-layer note first, with `confidence: medium` as the safe default.
+4. **Cross-verify factual claims**: when the source contains claims about real-world events, statistics, product releases, personnel changes, or other externally verifiable information, use an available search companion (e.g. `anysearch` via `batch_search` or sequential `search` calls) to verify each material claim against independent sources. Prefer the original source (e.g. the author's own blog post, official announcement) over secondary reporting. If `batch_search` times out with 3+ queries, fall back to individual `search` calls — they have lower latency and better reliability. After verification:
+   - Update the frontmatter `confidence` field: `high` when all material claims are corroborated, `medium` when some are unverified, `low` when contradictions are found.
+   - Append a `## Cross-verification` table to the source note listing each claim, its verification result (✅/⚠️/❌), and the corroborating source.
+   - See [cross-verification-workflow.md](references/cross-verification-workflow.md) for detailed procedure, table template, and anysearch CLI reference.
+5. Promote information into knowledge or project notes only when it is worth retaining beyond the source note.
+6. Update links, indexes, or log notes only when the vault already uses them or when the change materially improves navigation.
+7. Report what changed.
 
 Guardrails:
 
@@ -206,6 +211,8 @@ Guardrails:
 - Do not silently upgrade a source summary into a durable conclusion.
 - Do not impose `entities/` or `concepts/` folders if the vault does not use them.
 - Do not let `log.md` become an unbounded transcript; rotate it when it stops being a useful recent-history view.
+- Do not skip cross-verification for sources whose claims can be checked — unverified claims weaken the vault's trustworthiness over time.
+- When batch_search times out, fall back to individual search calls rather than skipping verification.
 
 ## Answer Workflow
 
