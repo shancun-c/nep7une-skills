@@ -203,7 +203,8 @@ Use this workflow for new source material:
    - See [cross-verification-workflow.md](references/cross-verification-workflow.md) for detailed procedure, table template, and anysearch CLI reference.
 5. Promote information into knowledge or project notes only when it is worth retaining beyond the source note.
 6. Update links, indexes, or log notes only when the vault already uses them or when the change materially improves navigation.
-7. Report what changed.
+7. **Push to GitHub**: After any ingest session that produced meaningful vault changes (new source notes, index updates, log entries), sync the vault to its remote Git repository. Use the safe clone+rsync pattern from [git-sync-pitfalls.md](references/git-sync-pitfalls.md) — never run git operations directly in the vault directory.
+8. Report what changed.
 
 Guardrails:
 
@@ -297,6 +298,10 @@ Rules:
 - ask for user confirmation before high-risk writes
 - preserve existing conventions whenever possible
 - prefer archive over delete
+
+**Git operations on the vault are always high-risk.** Never `git reset --hard` on a vault working tree — the local vault holds the latest content. Read [git-sync-pitfalls.md](references/git-sync-pitfalls.md) before syncing a vault with a remote Git repository.
+
+**Safe GitHub push path**: Clone the remote to an independent directory (e.g. `~/code/<repo-name>/`), rsync the vault into it, then commit and push from there. Never init a `.git` directory inside the vault itself — the vault should remain a plain directory of Markdown files.
 
 ## Routing Reminder
 
