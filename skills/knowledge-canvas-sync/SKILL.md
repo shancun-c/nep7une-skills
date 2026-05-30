@@ -31,6 +31,7 @@ The canvas is the **central visual interface** for the user's knowledge. Every k
 - `scripts/verify-canvas-colors.py` — verification-only; run after canvas writes to catch color errors
 - `scripts/fix-canvas-colors.py` — comprehensive fix + verify; use this for canvas maintenance (group colors, stale yellows, edge integrity). Pass `STALE_YELLOW_IDS=id1,id2` env var to revert stale nodes. Use `--dry-run` to preview without writing.
 - `references/canvas-state.md` — current canvas layout, groups, node stats, and color scheme; consult before structural changes
+- `references/canvas-layout-repair.md` — programmatic canvas layout repair: node-to-group assignment, dynamic height recalculation, row-based reflow, overlap verification. Use when the canvas becomes visually broken (overlapping rows, wrong group sizes, nodes outside groups). Contains full Python script template.
 
 ## Workflow
 
@@ -84,12 +85,35 @@ After all knowledge processing:
 - **Remove stale**: If a knowledge note was deleted from `30 Knowledge/`, remove its node and edges from the canvas
 - **Update Knowledge Index**: Add new knowledge notes to `30 Knowledge/Knowledge Index.md`
 - **Update canvas-state.md**: Update `references/canvas-state.md` with the current date, stats, and any new node IDs added today (for tomorrow's stale-yellow reversion)
-- **Verify colors**: After every canvas write, run `scripts/fix-canvas-colors.py` to programmatically verify and fix:
-  - ALL group nodes have `color: "4"` (green) — no exceptions
-  - Principle-level nodes (in `工程原则` group) have `color: "6"` (purple)
-  - Remaining text nodes are `"5"` (cyan) or `"3"` (yellow if new today)
-  - New edges for new nodes use `color: "3"` (yellow) to match node freshness
-  - Print a color summary table before finalizing
+- **🔒 Post-Update Canvas Audit (MANDATORY)**: After EVERY canvas write — whether adding nodes, updating edges, or adjusting layout — run a full format and layout audit. This is NOT optional. Skipping this step is the #1 cause of recurring formatting issues.
+
+  1. **Load `obsidian-canvas-creator` skill** before starting the audit. It provides the layout algorithms, spacing constants, and validation patterns needed for a thorough review.
+
+  2. **Color audit** via `scripts/fix-canvas-colors.py`:
+     - ALL group nodes → `color: "4"` (green), no exceptions
+     - 工程原则 group text nodes → `color: "6"` (purple)
+     - Established knowledge nodes → `color: "5"` (cyan)
+     - Today's new nodes → `color: "3"` (yellow)
+     - Stale yellow nodes (>24h) → revert to `"5"` (cyan)
+     - Print a color summary table
+
+  3. **Layout audit** — write and execute a Python verification script (use `terminal`, NEVER `patch` on .canvas files) that checks:
+     - **Group dimensions**: Each group's height must match its node count. Use `group_height(num_nodes)` formula (see `references/canvas-layout-repair.md`). Wrong heights → row overlaps.
+     - **Node overlaps**: Check ALL text node bounding-box pairs. 0 overlaps required.
+     - **Node containment**: Every text node's center must be inside its group's bounding box (nodes outside groups = format error).
+     - **Node sizes**: ALL knowledge nodes must be 360×170. Size 320×100 → text truncation, reject and fix.
+     - **Row positioning**: Row N's Y = sum of max heights of rows 0..N-1 + GROUP_GAP×N. No hardcoded absolute Y values — calculate dynamically.
+     - **Group color uniformity**: ALL groups must be `"4"` (green). Any group with `"5"` or `"6"` is a format error → fix immediately.
+     - **Edge integrity**: All `fromNode`/`toNode` references must resolve to existing node IDs. Remove orphan edges.
+     - **Z-order**: Group nodes MUST appear before text nodes in the `nodes` array (Obsidian renders in array order — wrong order causes invisible groups).
+
+  4. **Node content audit** — verify every text node has the required structure:
+     - First line: **bold title**
+     - Following lines: 2-3 sentence summary
+     - Last line: wikilink (`→ [[note path]]`)
+     - Flag nodes missing any element
+
+  5. **Auto-fix & re-verify**: If ANY audit check fails, fix the issue programmatically (Python script → `terminal`) and re-run the full audit. Do NOT proceed to the Report step with known formatting errors. The audit MUST pass clean before moving on.
 
 ### 5. Report
 
@@ -163,7 +187,7 @@ tags: []
 - Knowledge notes must link back to their source notes (traceability)
 - If no source notes were ingested today, skip the **scan** phase (step 2) — but still run canvas maintenance (step 4: color refresh, group fix, orphan reconciliation, stale-yellow reversion). Canvas color drift accumulates silently; maintenance must run daily regardless of new sources.
 - **NEVER mix group colors**: all groups are `"4"` (green). Do NOT use `"5"` or `"6"` on group nodes — semantic meaning is expressed through text node colors only
-- **Always load `obsidian-canvas-creator` skill** before any canvas read/write operations — it provides the layout algorithms, spacing rules, and JSON format conventions. This is NON-NEGOTIABLE — do not skip loading this skill.
+- **Always load `obsidian-canvas-creator` skill** before any canvas read/write operations AND before the post-update audit — it provides the layout algorithms, spacing rules, and JSON format conventions. This is NON-NEGOTIABLE — do not skip loading this skill.
 - **Do NOT use `json-canvas` skill for this workflow.** The `json-canvas` skill lacks the domain-specific layout intelligence (2-col grid, row-based positioning, spacing constants) that `obsidian-canvas-creator` provides. Using `json-canvas` will result in incorrectly sized nodes (320×100 instead of 360×170), wrong group sizes, and layout overlaps.
 - **Color rules apply to ALL canvas operations**, not just sync runs. When rebuilding or restructuring the canvas (even outside a sync workflow), the color scheme in this skill takes precedence over obsidian-canvas-creator's general-purpose color recommendations. Common mistake: assigning semantic colors to groups (purple for principles, cyan for tools) — this always violates the convention that ALL groups are green.
 
@@ -173,13 +197,19 @@ tags: []
 
 - **Group colors drift over time.** After multiple canvas edits (especially by other tools or workflows), groups can pick up wrong colors (e.g. \"5\" or \"6\"). Always verify ALL group colors are \"4\" (green) during every sync, even when no new knowledge was added. This is the most common canvas violation.
 
-- **Stale yellow nodes accumulate.** Nodes added with color \"3\" must be reverted to \"5\" after 24 hours. Track node IDs from previous syncs (stored in `references/canvas-state.md`) and revert them programmatically. Yellow edges associated with those nodes must also be reverted.
+- **Stale yellow nodes accumulate.** Nodes added with color "3" must be reverted to "5" after 24 hours. Track node IDs from previous syncs (stored in `references/canvas-state.md`) and revert them programmatically. Yellow edges associated with those nodes must also be reverted.
+
+- **canvas-state.md may drift from actual canvas content.** The `canvas-state.md` file records node IDs and their descriptions from the last sync, but the actual canvas JSON can be modified by other tools or workflows between sync runs. This causes node ID-description mismatches — e.g., `canvas-state.md` says node X has text A but the actual canvas has text B (or vice versa). Always **verify stale-yellow node IDs against the actual canvas content** before reverting. Do NOT blindly trust canvas-state.md's node descriptions. The `fix-canvas-colors.py` script relies on node colors (not descriptions), so it correctly handles mismatches — but the human-readable report should be written based on the actual canvas content, not canvas-state.md's stale records.
 
 - **Vault path not obvious.** The Obsidian vault is at a Google Drive path configured in `obsidian-wiki-skill/references/vault-config.md`. Always consult that reference first — the vault is NOT at `~/Documents/Obsidian Vault` or `~/Obsidian`.
 
 - **canvas-state.md patch leaves stale trailing content.** When using `patch` to update `references/canvas-state.md`, old stats lines can survive the patch if the old_string doesn't extend far enough. The result is a file that has both the new stats AND the previous run's stats at the bottom. Always read back the file after patching and remove any leftover stale lines. The `## Today's New Nodes` section is the natural boundary — nothing should appear after the last new-node-ID bullet.
 
 - **Cron execution: memory is UNAVAILABLE.** Cron-spawned agents run with `skip_memory=True`, so they cannot read the vault path from memory or user profile. The cron job's prompt MUST include the absolute vault path explicitly (e.g. "The Obsidian vault is at /Users/.../the_ai_obsidian"). Alternatively, set `workdir` on the cron job to the vault path — this also injects `AGENTS.md` context. Without this, the cron agent will search for files in `~/.hermes/hermes-agent/` (the scheduler's cwd) and fail with "File not found" errors.
+
+- **🚨 Cron job skills list MUST match Execution Companions.** The cron job's `skills` array is what the agent actually loads — not what this SKILL.md says. If the cron job lists `json-canvas` instead of `obsidian-canvas-creator`, the cron agent WILL use the wrong skill and corrupt the canvas (wrong node sizes 320×100, no layout intelligence, patch-tool escape-drift). This is the #1 cause of canvas corruption in cron runs. Verify: `hermes cron list` or read `~/.hermes/cron/jobs.json` and check the `skills` field. The correct skills list is: `knowledge-canvas-sync, obsidian-canvas-creator, obsidian-markdown, obsidian-wiki-skill`.
+
+- **🚨 Skipping the post-update audit causes cumulative format drift.** The #2 cause of recurring canvas formatting issues. When the audit is skipped (e.g., agent finishes step 4 and jumps straight to Report), format errors accumulate silently: group heights drift out of sync with node counts, nodes fall outside groups, stale yellow nodes persist, and row overlaps appear. Each skipped audit makes the next repair harder. The post-update audit in Step 4 is MANDATORY — the Report step (Step 5) must NOT be reached with any audit failure unresolved.
 
 ## Cron Integration
 
