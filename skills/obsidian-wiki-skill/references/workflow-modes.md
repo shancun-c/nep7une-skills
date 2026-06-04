@@ -53,12 +53,14 @@ Preferred behavior:
 
 Use `ingest` when the user wants new material folded into the vault.
 
+**All non-trivial ingests follow a two-step CoT pattern**: analysis (Step 1) before writing (Step 2). See [two-step-ingest.md](references/two-step-ingest.md) for the full specification.
+
 Ingest flow:
 
-1. Identify the current source-note convention.
-2. Preserve the new material in the source layer first.
-3. Decide whether the source justifies changes to knowledge or project notes.
-4. Update indexes, dashboards, or log notes only when that matches the vault's existing habits or clearly improves navigation.
+1. **Pre-process**: Parse external content (defuddle for URLs, browser fallback for JS-rendered pages).
+2. **Orient**: Understand vault conventions, existing notes in the source's domain.
+3. **Step 1 — Cognitive Audit**: Analyze source content against vault knowledge. Produce a structured ingest blueprint covering entity/concept extraction, connection mapping, gap analysis, and a write plan. Do NOT write any files yet.
+4. **Step 2 — Atomic Write**: Execute the blueprint in strict order: create source note → cross-verify → update knowledge notes → update indices → update log → git push → report.
 5. Summarize exactly what changed.
 
 Default rule:
@@ -87,9 +89,10 @@ Audit scope:
 - navigation
 - metadata
 - relationships
-- evidence traceability
+- evidence traceability (including `review: true` flagged claims awaiting human judgment)
 - duplication
 - stale or weak synthesis
+- knowledge coverage (sparse areas, isolated notes with few connections)
 
 Default rule:
 
@@ -115,6 +118,8 @@ Lint checklist:
 - relationship quality
 - evidence traceability
 - stale or weak synthesis
+- `review: true` flagged claims (aggregate pending human review items from cross-verification tables)
+- knowledge coverage gaps (sparse domains, isolated notes, missing bridge between related concepts)
 - schema, index, or log drift when those files exist
 - active log bloat and rotation hygiene when the vault uses `log.md`
 - evidence gaps that may benefit from external source discovery
