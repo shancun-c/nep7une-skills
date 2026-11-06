@@ -2,6 +2,7 @@
 from pathlib import Path
 import re
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -37,6 +38,17 @@ class DependencyContracts(unittest.TestCase):
                     result[skill, runtime, level].append(match[1])
         return result
 
+    def test_registry_structure_and_canvas_companion_declarations(self):
+        declared = self.declared()
+        self.assertEqual(len(declared), 27)
+        for runtime in RUNTIMES:
+            self.assertIn('obsidian-canvas-creator',
+                          declared['knowledge-canvas-sync', runtime, 'required'])
+            for level in ('required', 'recommended', 'optional'):
+                self.assertNotIn('json-canvas',
+                                 declared['knowledge-canvas-sync', runtime, level])
+
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_shell_registry_parity_all_skills_and_runtimes(self):
         declared = self.declared()
         self.assertEqual(len(declared), 27)
@@ -48,6 +60,7 @@ class DependencyContracts(unittest.TestCase):
                 self.assertEqual(r.returncode, 0, r.stderr)
                 self.assertEqual(r.stdout.splitlines(), expected)
 
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_canvas_requires_creator_not_generic_canvas(self):
         declared = self.declared()
         for runtime in RUNTIMES:
@@ -73,6 +86,7 @@ class DependencyContracts(unittest.TestCase):
                 self.assertIn('optional missing:', r.stderr)
                 self.assertTrue((root / 'nep7une-skills/knowledge-canvas-sync/SKILL.md').is_file())
 
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_each_canvas_required_companion_is_enforced(self):
         declared = self.declared()
         for runtime in RUNTIMES:

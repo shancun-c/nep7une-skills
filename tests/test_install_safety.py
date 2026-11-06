@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -112,12 +113,18 @@ class InstallSafety(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         self.assertFalse((backups[0] / 'new.txt').exists())
 
-    def test_local_mode_preserved_and_backup_outside_discovery_root(self):
+    @unittest.skipIf(os.name == 'nt', 'POSIX permission bits are not supported on Windows')
+    def test_local_mode_preserved(self):
         self.install()
         (self.target / 'SKILL.md').chmod(0o600)
         (self.source / 'SKILL.md').write_text('v2')
         self.install()
         self.assertEqual((self.target / 'SKILL.md').stat().st_mode & 0o777, 0o600)
+
+    def test_backup_outside_discovery_root(self):
+        self.install()
+        (self.source / 'SKILL.md').write_text('v2')
+        self.install()
         discovered = list(self.root.rglob('SKILL.md'))
         self.assertEqual(discovered, [self.target / 'SKILL.md'])
 
@@ -160,20 +167,28 @@ class InstallSafety(unittest.TestCase):
                 self.install(skill=skill)
         with self.assertRaises(ValueError): self.install(collection='../escape')
 
+    def make_symlink(self, link, target, directory=False):
+        try:
+            link.symlink_to(target, target_is_directory=directory)
+        except OSError as exc:
+            if os.name == 'nt' and getattr(exc, 'winerror', None) == 1314:
+                self.skipTest('Windows symlink creation privilege unavailable')
+            raise
+
     def test_symlink_destination_and_source_refused(self):
         self.root.mkdir()
         outside = self.base / 'outside'
         outside.mkdir()
-        (self.root / 'collection').symlink_to(outside, target_is_directory=True)
+        self.make_symlink(self.root / 'collection', outside, directory=True)
         with self.assertRaises(ValueError): self.install()
         self.assertEqual(list(outside.iterdir()), [])
         (self.root / 'collection').unlink()
-        (self.source / 'linked').symlink_to(outside, target_is_directory=True)
+        self.make_symlink(self.source / 'linked', outside, directory=True)
         with self.assertRaises(ValueError): self.install()
 
     def test_target_file_symlink_refused(self):
         self.install()
-        (self.target / 'link').symlink_to(self.source / 'SKILL.md')
+        self.make_symlink(self.target / 'link', self.source / 'SKILL.md')
         with self.assertRaises(ValueError): self.install()
 
     def test_mismatched_manifest(self):
@@ -237,6 +252,7 @@ class InstallSafety(unittest.TestCase):
             self.install()
             self.install()
 
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_missing_required_dependency_refuses_without_target(self):
         for runtime in ('codex', 'hermes', 'openclaw'):
             with self.subTest(runtime=runtime):
@@ -247,6 +263,7 @@ class InstallSafety(unittest.TestCase):
                 self.assertIn('Missing required skill dependencies', result.stderr)
                 self.assertFalse(root.exists())
 
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_all_real_packages_roundtrip_and_installed_canvas_cli(self):
         import sys
         deps = ('obsidian', 'obsidian-markdown', 'obsidian-cli', 'obsidian-bases',
@@ -284,6 +301,7 @@ class InstallSafety(unittest.TestCase):
                     self.assertEqual(canvas.read_bytes(), original)
             self.assertEqual(len(list(self.base.glob(runtime + '.canvas.backup-*'))), 1)
 
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_all_shell_entrypoints_use_safe_helper(self):
         for runtime in ('codex', 'hermes', 'openclaw'):
             with self.subTest(runtime=runtime):
