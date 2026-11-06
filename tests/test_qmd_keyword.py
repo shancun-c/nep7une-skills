@@ -12,6 +12,21 @@ m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 
 class QmdTests(unittest.TestCase):
+    def test_python38_containment_preserves_boundaries(self):
+        self.assertTrue(m._is_within(self.root, self.root))
+        self.assertTrue(m._is_within(self.root / 'a.md', self.root))
+        self.assertFalse(m._is_within(self.root.parent, self.root))
+        self.assertFalse(m._is_within(self.root.with_name(self.root.name + '-other'), self.root))
+        self.assertEqual(m._read(self.root, 'a.md'), '# Synthetic\n关键词 keyword\n')
+
+    def test_no_python39_path_api_in_qmd_modules(self):
+        import ast
+        for name in ['qmd_keyword.py', 'qmd_index_experiment.py', 'qmd_generation.py']:
+            source = Path(__file__).parents[1] / 'tools' / name
+            tree = ast.parse(source.read_text(encoding='utf-8'))
+            self.assertFalse(any(isinstance(node, ast.Attribute) and node.attr == 'is_relative_to'
+                                 for node in ast.walk(tree)), name)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

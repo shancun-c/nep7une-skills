@@ -82,6 +82,15 @@ def search(query: str, **kwargs) -> dict:
     return result
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    """Lexical containment for already-canonical paths, compatible with Python 3.8."""
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
 def _read(root: Path, relative: str) -> str:
     p = root / relative
     if Path(relative).is_absolute() or '..' in Path(relative).parts:
@@ -90,7 +99,7 @@ def _read(root: Path, relative: str) -> str:
     if any((root.joinpath(*Path(relative).parts[:i])).is_symlink()
            for i in range(1, len(Path(relative).parts) + 1)):
         raise ValueError('symlink')
-    if not p.resolve().is_relative_to(root) or not p.is_file():
+    if not _is_within(p.resolve(), root) or not p.is_file():
         raise ValueError('unavailable source')
     with p.open('rb') as f:
         raw = f.read(MAX_BYTES + 1)
@@ -143,7 +152,7 @@ def _search_experiment(query: str, *, root: Path, files: list[str], enabled: boo
     if state_dir is None:
         return literal('private-state-not-configured')
     state = Path(state_dir).resolve()
-    if state.is_relative_to(root) or not state.is_dir():
+    if _is_within(state, root) or not state.is_dir():
         return literal('unsafe-state-directory')
     env = dict(os.environ, INDEX_PATH=str(state / 'index.sqlite'),
                QMD_CONFIG_DIR=str(state / 'config'), XDG_CACHE_HOME=str(state / 'cache'))

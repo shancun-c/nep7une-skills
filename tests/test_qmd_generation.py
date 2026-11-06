@@ -104,6 +104,24 @@ class GenerationTests(unittest.TestCase):
     def test_live_query_disabled(self):
         with self.assertRaisesRegex(ValueError,'writer exclusion'):
             g.search_active_synthetic('keyword',state_dir=self.state,root=self.root,collection='synthetic',expected_generation='abc')
+    def test_sealed_relative_root_and_python38_path_api(self):
+        from types import SimpleNamespace
+        old_cwd = Path.cwd()
+        self.addCleanup(os.chdir, old_cwd)
+        os.chdir(self.base)
+        a = g.attest(self.mp, runtime_root=self.runtime)
+        g.activate_synthetic(a, state_dir=self.state, root=self.root, collection='synthetic')
+        def runner(argv, **kwargs):
+            return SimpleNamespace(stdout=json.dumps([{'file':'qmd://synthetic/a.md','line':1}]))
+        absolute = g.search_sealed_synthetic('keyword', state_dir=self.state,
+            root=self.root, collection='synthetic', expected_generation='abc', _runner=runner)
+        relative = g.search_sealed_synthetic('keyword', state_dir=Path('private'),
+            root=Path('source'), collection='synthetic', expected_generation='abc', _runner=runner)
+        self.assertEqual(relative['mode'], 'qmd-keyword')
+        self.assertEqual(relative['hits'], absolute['hits'])
+        self.assertEqual(relative['experimental_generation'], 'abc')
+        self.assertEqual(list(self.state.glob('sealed-query-*')), [])
+
     def test_sealed_query_ignores_live_index_writer(self):
         from types import SimpleNamespace
         a=g.attest(self.mp,runtime_root=self.runtime)

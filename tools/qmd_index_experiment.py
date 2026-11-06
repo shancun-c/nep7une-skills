@@ -12,9 +12,9 @@ import tempfile
 import uuid
 from contextlib import contextmanager, closing
 try:
-    from .qmd_keyword import _read, _hash, _bounded_run
+    from .qmd_keyword import _read, _hash, _bounded_run, _is_within
 except ImportError:
-    from qmd_keyword import _read, _hash, _bounded_run
+    from qmd_keyword import _read, _hash, _bounded_run, _is_within
 
 
 def identity(path):
@@ -80,7 +80,7 @@ def build_synthetic(*, root, files, collection, command, state_dir,
     root = Path(root).resolve(strict=True)
     command = Path(command).resolve(strict=True)
     state = Path(state_dir).resolve(strict=True)
-    if state.is_relative_to(root):
+    if _is_within(state, root):
         raise ValueError('state must be outside source root')
     if len(files) != len(set(files)) or not files:
         raise ValueError('nonempty unique allowlist required')

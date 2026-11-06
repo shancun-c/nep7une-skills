@@ -8,7 +8,7 @@ import sqlite3
 import tempfile
 from contextlib import closing
 from .qmd_index_experiment import identity, verify_unchanged, reject_sidecars, checked_index_snapshot
-from .qmd_keyword import _bounded_run, _read, _hash
+from .qmd_keyword import _bounded_run, _read, _hash, _is_within
 
 # Matches the pinned 2.8.3 normalization contract, using JS Unicode Script
 # properties rather than incomplete Python CJK ranges. No upstream JS is loaded.
@@ -23,7 +23,7 @@ def runtime_digest(root):
         name=p.relative_to(root).as_posix()
         if p.is_symlink():
             target=p.resolve(strict=True)
-            if not target.is_relative_to(root):raise ValueError('runtime link escapes root')
+            if not _is_within(target, root):raise ValueError('runtime link escapes root')
             out.append([name,'symlink',os.readlink(p)])
         elif p.is_file():
             out.append([name,'file',identity(p)['sha256']])
@@ -88,7 +88,7 @@ def attest(manifest_path, *, runtime_root):
     m=json.loads(p.read_text(encoding='utf-8'))
     verify_unchanged(p)
     runtime=runtime_digest(runtime_root)
-    if not Path(m['executable']['path']).is_relative_to(Path(runtime['root'])):
+    if not _is_within(Path(m['executable']['path']), Path(runtime['root'])):
         raise ValueError('QMD executable outside bound runtime')
     node=Path(shutil.which('node') or '').resolve(strict=True)
     node_id=identity(node)
@@ -126,7 +126,7 @@ def validate_attestation(path, *, root, collection):
 def activate_synthetic(attestation, *, state_dir, root, collection):
     """Explicitly select validated synthetic generation; no QMD search activation."""
     state=Path(state_dir).resolve(strict=True);p=Path(attestation).resolve(strict=True)
-    if not p.is_relative_to(state) or state.is_relative_to(Path(root).resolve(strict=True)):
+    if not _is_within(p, state) or _is_within(state, Path(root).resolve(strict=True)):
         raise ValueError('generation outside private state')
     a=validate_attestation(p,root=root,collection=collection)
     pointer={'schema':1,'generation':a['generation'],'attestation':identity(p),'root':a['root'],'collection':collection}
@@ -139,7 +139,7 @@ def verify_active(*,state_dir,root,collection,expected_generation):
     stamp=identity(p);pointer=json.loads(p.read_text(encoding='utf-8'))
     if pointer['generation']!=expected_generation:raise ValueError('active generation switched')
     ap=Path(pointer['attestation']['path'])
-    if not ap.is_relative_to(state) or identity(ap)!=pointer['attestation']:raise ValueError('active attestation changed')
+    if not _is_within(ap, state) or identity(ap)!=pointer['attestation']:raise ValueError('active attestation changed')
     a=validate_attestation(ap,root=root,collection=collection)
     if pointer['root']!=a['root'] or pointer['collection']!=a['collection'] or pointer['generation']!=a['generation']:
         raise ValueError('pointer binding mismatch')
@@ -165,6 +165,7 @@ def search_sealed_synthetic(query, *, state_dir, root, collection, expected_gene
     stays disabled. _runner is a test seam, not an untrusted plugin interface.
     """
     from .qmd_keyword import _search_experiment
+    root=Path(root).resolve(strict=True)
     state=Path(state_dir).resolve(strict=True)
     pointer_path=state/'active-synthetic.json'
     pointer_stamp=identity(pointer_path)
