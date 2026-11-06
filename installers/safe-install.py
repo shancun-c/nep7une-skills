@@ -53,7 +53,7 @@ def validate(repo, source, target, root, skill, collection):
     # Match the registry's deliberately narrow top-level skill-list syntax only.
     # Do not parse arbitrary YAML, execute tags, or infer a filesystem path from input.
     registered = re.findall(r'^  - slug: ([a-z0-9-]+)\s*$',
-                            (repo / 'registry.yaml').read_text(), re.M)
+                            (repo / 'registry.yaml').read_text(encoding='utf-8'), re.M)
     if skill not in registered:
         raise ValueError(f'Unregistered skill: {skill}')
     for path in (source, target, root):
@@ -83,7 +83,7 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
         marker = target / MARKER
         if not marker.is_file():
             raise ValueError('Nonempty target is not managed. Choose a new directory; migrate user files manually.')
-        meta = json.loads(marker.read_text())
+        meta = json.loads(marker.read_text(encoding='utf-8'))
         if (meta.get('schema'), meta.get('skill'), meta.get('collection')) != (1, skill, collection):
             raise ValueError('Ownership marker does not match this skill/collection.')
         old = meta.get('files')
@@ -135,7 +135,7 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
             if rel in before:
                 os.chmod(dest, before[rel][1])  # Preserve local permission-only edits.
         (stage / MARKER).write_text(json.dumps({'schema': 1, 'skill': skill,
-            'collection': collection, 'files': files}, indent=2) + '\n')
+            'collection': collection, 'files': files}, indent=2) + '\n', encoding='utf-8')
         if snapshot(target) != before or snapshot(source) != package:
             raise ValueError('Source or target changed during staging; original retained.')
         no_symlinks(target)

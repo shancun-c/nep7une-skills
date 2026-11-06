@@ -21,26 +21,26 @@ class GitPolicyDocuments(unittest.TestCase):
                          'references/workflow-modes.md', 'references/vault-config.md',
                          'references/git-sync-pitfalls.md']:
             with self.subTest(filename=filename):
-                text = (SKILL / filename).read_text()
+                text = (SKILL / filename).read_text(encoding='utf-8')
                 self.assertIn('Local editing does not authorize publication', text)
                 self.assertIn('branch', text)
 
     def test_no_dangerous_executable_recipe(self):
         for p in SKILL.rglob('*.md'):
-            text = p.read_text()
+            text = p.read_text(encoding='utf-8')
             code = '\n'.join(re.findall(r'```(?:bash|sh)?\n(.*?)```', text, re.S))
             self.assertNotRegex(code, r'git\s+(?:init|reset|add\s+-A)\b')
             self.assertNotRegex(code, r'git[^\n]*push[^\n]*(?:--force|\s-f\b)')
             self.assertNotRegex(code, r'rsync[^\n]*--delete')
 
     def test_no_personal_fallback(self):
-        text = (SKILL / 'references/vault-config.md').read_text()
+        text = (SKILL / 'references/vault-config.md').read_text(encoding='utf-8')
         for private_value in ['wenweikun', '/Users/nep7une', 'the_ai_obsidian']:
             self.assertNotIn(private_value, text)
         self.assertIn('There is no fallback remote or branch', text)
 
     def test_remote_preservation_and_stop_conditions_are_required(self):
-        text = (SKILL / 'references/git-sync-pitfalls.md').read_text()
+        text = (SKILL / 'references/git-sync-pitfalls.md').read_text(encoding='utf-8')
         for invariant in ['remote-only', 'allowlist', 'all push URLs',
                           'ahead, behind, or diverged', 'ordinary fast-forward push',
                           'Read back the remote tip', 'not an automatic sync implementation']:
@@ -90,7 +90,7 @@ class DisposableGitBehavior(unittest.TestCase):
             self.assertEqual(git('--git-dir', str(remote), 'rev-parse', 'main').stdout.strip(), expected)
             self.assertEqual(git('--git-dir', str(remote), 'show', 'main:remote-only.md').stdout, 'must survive\n')
             self.assertEqual(git('--git-dir', str(remote), 'show', 'main:new-remote.md').stdout, 'concurrent content\n')
-            self.assertEqual((checkout / 'approved.md').read_text(), 'approved update\n')
+            self.assertEqual((checkout / 'approved.md').read_text(encoding='utf-8'), 'approved update\n')
 
 
 if __name__ == '__main__':

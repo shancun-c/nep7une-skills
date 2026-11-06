@@ -328,3 +328,14 @@ Tests use temporary directories and local toy Git remotes only. They do not
 certify full Codex/Hermes/OpenClaw discovery or real Obsidian integration.
 Dependency coverage and other P1 findings from the audit are separate follow-up
 work; `--skip-deps` must not be taken as evidence that runtime dependencies exist.
+
+### Integration check coverage
+
+The offline suite also exercises all nine runtime/skill installer combinations
+with synthetic dependency skills, repeated installation and byte comparisons.
+Installed canvas repair/verify CLIs are exercised on disposable canvas files.
+These checks validate packaging and command-line wiring, not real runtime skill
+discovery or Obsidian behavior. Missing required Wiki dependencies are checked
+for refusal. Knowledge Canvas dependency-manifest coverage remains follow-up work.
+UTF-8 registry/manifest reads are explicit rather than dependent on host locale.
+Native Windows/macOS execution remains unverified.

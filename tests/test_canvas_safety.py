@@ -118,7 +118,7 @@ class CanvasSafetyTests(unittest.TestCase):
         with patch.dict(os.environ, {"STALE_YELLOW_IDS": "n"}):
             result = fixer.fix_and_verify(self.path)
         self.assertTrue(result["saved"])
-        data = json.loads(self.path.read_text())
+        data = json.loads(self.path.read_text(encoding='utf-8'))
         self.assertEqual(data["nodes"][1]["color"], "5")
         self.assertEqual(data["edges"][0]["color"], "5")
 
@@ -154,7 +154,7 @@ class CanvasSafetyTests(unittest.TestCase):
         result = fixer.fix_and_verify(self.path)
         self.assertTrue(result["errors"])
         self.assertEqual(self.path.read_bytes(), self.original)
-        self.assertEqual(lock.read_text(), "another writer")
+        self.assertEqual(lock.read_text(encoding='utf-8'), "another writer")
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unsupported")
     def test_symlink_is_rejected(self):

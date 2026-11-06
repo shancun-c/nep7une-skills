@@ -164,6 +164,66 @@ class InstallSafety(unittest.TestCase):
         self.assertEqual(before, mod.snapshot(self.target))
         self.assertTrue(lock.exists())
 
+    def test_utf8_manifest_and_registry_ignore_locale(self):
+        # Ensure required file reads choose UTF-8 even under non-UTF-8 locales.
+        original_read = Path.read_text
+        def strict_read(path, *args, **kwargs):
+            if path.name in ('registry.yaml', mod.MARKER):
+                self.assertEqual(kwargs.get('encoding'), 'utf-8')
+            return original_read(path, *args, **kwargs)
+        (self.repo / 'registry.yaml').write_text(
+            '# 中文注册表\nskills:\n  - slug: demo-skill\n', encoding='utf-8')
+        with patch.object(Path, 'read_text', strict_read):
+            self.install()
+            self.install()
+
+    def test_missing_required_dependency_refuses_without_target(self):
+        for runtime in ('codex', 'hermes', 'openclaw'):
+            with self.subTest(runtime=runtime):
+                root = self.base / runtime
+                result = subprocess.run(['bash', str(REPO / f'installers/install-{runtime}.sh'),
+                    '--skills-dir', str(root)], capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Missing required skill dependencies', result.stderr)
+                self.assertFalse(root.exists())
+
+    def test_all_real_packages_roundtrip_and_installed_canvas_cli(self):
+        import sys
+        deps = ('obsidian', 'obsidian-markdown', 'obsidian-cli', 'obsidian-bases',
+                'json-canvas', 'defuddle', 'anysearch', 'obsidian-canvas-creator')
+        for runtime in ('codex', 'hermes', 'openclaw'):
+            root = self.base / runtime
+            for dep in deps:
+                folder = root / dep
+                folder.mkdir(parents=True)
+                (folder / 'SKILL.md').write_text('---\nname: ' + dep + '\n---\n')
+            for skill in ('obsidian-wiki-skill', 'knowledge-canvas-sync', 'server-ops-skill'):
+                with self.subTest(runtime=runtime, skill=skill):
+                    cmd = ['bash', str(REPO / f'installers/install-{runtime}.sh'),
+                           '--skill', skill, '--skills-dir', str(root)]
+                    for _ in range(2):
+                        result = subprocess.run(cmd, capture_output=True, text=True)
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                    installed = root / 'nep7une-skills' / skill
+                    for source in (REPO / 'skills' / skill).rglob('*'):
+                        if source.is_file() and '__pycache__' not in source.parts:
+                            self.assertEqual(source.read_bytes(),
+                                (installed / source.relative_to(REPO / 'skills' / skill)).read_bytes())
+            scripts = root / 'nep7une-skills/knowledge-canvas-sync/scripts'
+            canvas = self.base / (runtime + '.canvas')
+            canvas.write_text(json.dumps({'nodes': [{'id': 'g', 'type': 'group',
+                'x': 0, 'y': 0, 'width': 100, 'height': 100, 'color': '5'}], 'edges': []}))
+            original = canvas.read_bytes()
+            for script, args in [('fix-canvas-colors.py', ['--dry-run']),
+                                 ('fix-canvas-colors.py', []),
+                                 ('verify-canvas-colors.py', [])]:
+                result = subprocess.run([sys.executable, str(scripts / script), *args, str(canvas)],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+                if args:
+                    self.assertEqual(canvas.read_bytes(), original)
+            self.assertEqual(len(list(self.base.glob(runtime + '.canvas.backup-*'))), 1)
+
     def test_all_shell_entrypoints_use_safe_helper(self):
         for runtime in ('codex', 'hermes', 'openclaw'):
             with self.subTest(runtime=runtime):
