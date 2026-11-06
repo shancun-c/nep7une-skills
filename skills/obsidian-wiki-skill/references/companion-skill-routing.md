@@ -2,6 +2,8 @@
 
 Use this file to map this orchestration skill onto the execution capabilities available in the current runtime. Do not assume every runtime exposes the same companion skills.
 
+First complete [companion-preflight.md](companion-preflight.md). The reviewed kepano entrypoints and license are recorded in [kepano-baseline.json](kepano-baseline.json); installers do not enforce that revision.
+
 ## `obsidian`
 
 Use `obsidian` when running in Hermes or another runtime that exposes a filesystem-first Obsidian skill.

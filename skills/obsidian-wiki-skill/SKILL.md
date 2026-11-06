@@ -117,6 +117,8 @@ Detailed mode behavior lives in [workflow-modes.md](references/workflow-modes.md
 
 ## Orientation Workflow
 
+Before accessing a vault, complete [companion-preflight.md](references/companion-preflight.md) to verify the authorized target, companion baseline, and operation scope.
+
 Always orient before acting in a new vault or after a long context gap.
 
 Use this order:
