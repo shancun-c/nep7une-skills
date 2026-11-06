@@ -2,6 +2,7 @@
 from pathlib import Path
 import re
 import subprocess
+from process_helper import run as run_test_process
 import shutil
 import tempfile
 import unittest
@@ -54,7 +55,7 @@ class DependencyContracts(unittest.TestCase):
         self.assertEqual(len(declared), 27)
         for (skill, runtime, level), expected in declared.items():
             with self.subTest(skill=skill, runtime=runtime, level=level):
-                r = subprocess.run(['bash', '-c', '. "$1"; skill_dependencies "$2" "$3" "$4"',
+                r = run_test_process(['bash', '-c', '. "$1"; skill_dependencies "$2" "$3" "$4"',
                     '_', str(ROOT / 'installers/lib.sh'), runtime, skill, level],
                     capture_output=True, text=True)
                 self.assertEqual(r.returncode, 0, r.stderr)
@@ -75,13 +76,13 @@ class DependencyContracts(unittest.TestCase):
                     (folder / 'SKILL.md').write_text('---\nname: ' + dep + '\n---\n')
                 cmd = ['bash', str(ROOT / f'installers/install-{runtime}.sh'),
                     '--skills-dir', str(root), '--skill', 'knowledge-canvas-sync']
-                r = subprocess.run(cmd, capture_output=True, text=True)
+                r = run_test_process(cmd, capture_output=True, text=True)
                 self.assertNotEqual(r.returncode, 0)
                 self.assertIn('required missing: obsidian-canvas-creator', r.stderr)
                 self.assertFalse((root / 'nep7une-skills').exists())
                 creator = root / 'obsidian-canvas-creator'; creator.mkdir()
                 (creator / 'SKILL.md').write_text('---\nname: obsidian-canvas-creator\n---\n')
-                r = subprocess.run(cmd, capture_output=True, text=True)
+                r = run_test_process(cmd, capture_output=True, text=True)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 self.assertIn('optional missing:', r.stderr)
                 self.assertTrue((root / 'nep7une-skills/knowledge-canvas-sync/SKILL.md').is_file())
@@ -99,7 +100,7 @@ class DependencyContracts(unittest.TestCase):
                             continue
                         folder = root / dep; folder.mkdir(parents=True)
                         (folder / 'SKILL.md').write_text('---\nname: ' + dep + '\n---\n')
-                    r = subprocess.run(['bash', str(ROOT / f'installers/install-{runtime}.sh'),
+                    r = run_test_process(['bash', str(ROOT / f'installers/install-{runtime}.sh'),
                         '--skills-dir', str(root), '--skill', 'knowledge-canvas-sync'],
                         capture_output=True, text=True)
                     self.assertNotEqual(r.returncode, 0)
