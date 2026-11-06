@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import subprocess
+from process_helper import run as run_test_process
 import sys
 import tempfile
 import unittest
@@ -20,11 +21,11 @@ class NativePythonInstallation(unittest.TestCase):
                                '--repo', str(REPO), '--source', str(REPO / 'skills' / skill),
                                '--target', str(target), '--root', str(root),
                                '--skill', skill, '--collection', 'nep7une-skills']
-                    result = subprocess.run(command + ['--dry-run'], capture_output=True)
+                    result = run_test_process(command + ['--dry-run'], capture_output=True)
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertFalse(target.exists())
                     for _ in range(2):
-                        result = subprocess.run(command, capture_output=True)
+                        result = run_test_process(command, capture_output=True)
                         self.assertEqual(result.returncode, 0, result.stderr)
                     for source in (REPO / 'skills' / skill).rglob('*'):
                         if source.is_file() and '__pycache__' not in source.parts:
@@ -38,7 +39,7 @@ class NativePythonInstallation(unittest.TestCase):
             root = Path(tmp) / 'skills'
             skill = 'knowledge-canvas-sync'
             target = root / 'nep7une-skills' / skill
-            result = subprocess.run([sys.executable, str(REPO / 'installers/safe-install.py'),
+            result = run_test_process([sys.executable, str(REPO / 'installers/safe-install.py'),
                 '--repo', str(REPO), '--source', str(REPO / 'skills' / skill),
                 '--target', str(target), '--root', str(root), '--skill', skill,
                 '--collection', 'nep7une-skills'], capture_output=True)
@@ -49,7 +50,7 @@ class NativePythonInstallation(unittest.TestCase):
             original = canvas.read_bytes()
             for script, flags in [('fix-canvas-colors.py', ['--dry-run']),
                                   ('fix-canvas-colors.py', []), ('verify-canvas-colors.py', [])]:
-                result = subprocess.run([sys.executable, str(target / 'scripts' / script),
+                result = run_test_process([sys.executable, str(target / 'scripts' / script),
                                          *flags, str(canvas)], capture_output=True)
                 self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
                 if flags:

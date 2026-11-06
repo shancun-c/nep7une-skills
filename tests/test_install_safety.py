@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+from process_helper import run as run_test_process
 import shutil
 import tempfile
 import unittest
@@ -257,7 +258,7 @@ class InstallSafety(unittest.TestCase):
         for runtime in ('codex', 'hermes', 'openclaw'):
             with self.subTest(runtime=runtime):
                 root = self.base / runtime
-                result = subprocess.run(['bash', str(REPO / f'installers/install-{runtime}.sh'),
+                result = run_test_process(['bash', str(REPO / f'installers/install-{runtime}.sh'),
                     '--skills-dir', str(root)], capture_output=True, text=True)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('Missing required skill dependencies', result.stderr)
@@ -279,7 +280,7 @@ class InstallSafety(unittest.TestCase):
                     cmd = ['bash', str(REPO / f'installers/install-{runtime}.sh'),
                            '--skill', skill, '--skills-dir', str(root)]
                     for _ in range(2):
-                        result = subprocess.run(cmd, capture_output=True, text=True)
+                        result = run_test_process(cmd, capture_output=True, text=True)
                         self.assertEqual(result.returncode, 0, result.stderr)
                     installed = root / 'nep7une-skills' / skill
                     for source in (REPO / 'skills' / skill).rglob('*'):
@@ -294,7 +295,7 @@ class InstallSafety(unittest.TestCase):
             for script, args in [('fix-canvas-colors.py', ['--dry-run']),
                                  ('fix-canvas-colors.py', []),
                                  ('verify-canvas-colors.py', [])]:
-                result = subprocess.run([sys.executable, str(scripts / script), *args, str(canvas)],
+                result = run_test_process([sys.executable, str(scripts / script), *args, str(canvas)],
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
                 if args:
@@ -308,13 +309,13 @@ class InstallSafety(unittest.TestCase):
                 root = self.base / runtime
                 cmd = ['bash', str(REPO / f'installers/install-{runtime}.sh'),
                        '--skill', 'server-ops-skill', '--skills-dir', str(root), '--skip-deps']
-                result = subprocess.run(cmd + ['--dry-run'], capture_output=True, text=True)
+                result = run_test_process(cmd + ['--dry-run'], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertFalse(root.exists())
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = run_test_process(cmd, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertTrue((root / 'nep7une-skills/server-ops-skill' / mod.MARKER).exists())
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = run_test_process(cmd, capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
 

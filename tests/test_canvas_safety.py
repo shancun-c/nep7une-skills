@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+from process_helper import run as run_test_process
 import sys
 import tempfile
 import unittest
@@ -185,7 +186,7 @@ class CanvasSafetyTests(unittest.TestCase):
         env = os.environ.copy()
         env.pop("OBSIDIAN_VAULT_PATH", None)
         for script in ("fix-canvas-colors.py", "verify-canvas-colors.py"):
-            result = subprocess.run([sys.executable, str(SCRIPTS / script)], env=env, capture_output=True, text=True)
+            result = run_test_process([sys.executable, str(SCRIPTS / script)], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 1)
             self.assertIn("Pass a canvas path", result.stderr)
             self.assertNotIn("Traceback", result.stderr)
