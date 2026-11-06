@@ -174,6 +174,7 @@ class CanvasSafetyTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), self.original)
         self.assertEqual(len(list(self.path.parent.iterdir())), 1)
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX permission bits are not supported on Windows')
     def test_mode_is_preserved(self):
         self.path.chmod(0o640)
         result = fixer.fix_and_verify(self.path)
