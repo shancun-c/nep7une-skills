@@ -5,6 +5,25 @@ description: Daily sync of Obsidian knowledge canvas — extract new knowledge f
 
 # Knowledge Canvas Sync
 
+
+### Safe color-repair procedure
+
+Close Obsidian and pause cloud sync or other canvas writers before repair. Preview first:
+
+```bash
+python3 scripts/fix-canvas-colors.py --dry-run /explicit/path/to/Knowledge.canvas
+python3 scripts/fix-canvas-colors.py /explicit/path/to/Knowledge.canvas
+python3 scripts/verify-canvas-colors.py /explicit/path/to/Knowledge.canvas
+```
+
+Run from this skill directory, or use absolute script paths. An explicit canvas path or `OBSIDIAN_VAULT_PATH` is required; there is no personal-path fallback. The scripts share structural/color checks. Optional text color is accepted, as is green (`"4"`) practice text. They are not full schema, layout, or semantic-role validators. Supply `STALE_YELLOW_IDS` only after checking each ID and its intended established color; the script cannot infer age or distinguish an old principle node from other old knowledge.
+
+Repair validates the complete candidate before writing, retains an original-byte backup beside the canvas, and uses a same-directory temporary file plus atomic replacement. Dry runs write nothing and validate the proposed result. Invalid input or an invalid candidate does not alter the canvas. The sidecar `.repair.lock` coordinates this tool only; do not remove a lock while another repair is running. After an interrupted run, inspect the file and backups and confirm no writer is active before manually removing a stale lock. A failure can leave a retained backup; do not count that as a completed repair.
+
+The script compares the file bytes and metadata again immediately before replacement. This detects edits up to that check, but is **not a compare-and-swap guarantee** against a non-cooperating editor or sync process writing in the final gap. Closing/pausing those writers is required. File replacement preserves ordinary mode bits, not all platform ACLs or extended metadata. Keep backups private and manage retention deliberately; never publish them automatically.
+
+The shipped `references/canvas-state.md` is a legacy example. Never treat it as live state or overwrite a user's existing state with it. For new setups, keep per-vault state in a user-selected private location outside the installed skill, such as `<vault>/.agent-state/nep7une-skills/canvas-state.md`; exclude it from publication. Migration of existing state requires a verified copy and must preserve the original.
+
 ## Mission
 
 This skill maintains a living visual knowledge graph in the Obsidian vault. It extracts durable knowledge from source notes, creates or updates evergreen knowledge notes, and reflects all knowledge in a single `.canvas` file with relationships visualized as edges.
@@ -30,7 +49,7 @@ The canvas is the **central visual interface** for the user's knowledge. Every k
 - Filesystem tools for reading source notes and existing knowledge notes
 - `scripts/verify-canvas-colors.py` — verification-only; run after canvas writes to catch color errors
 - `scripts/fix-canvas-colors.py` — comprehensive fix + verify; use this for canvas maintenance (group colors, stale yellows, edge integrity). Pass `STALE_YELLOW_IDS=id1,id2` env var to revert stale nodes. Use `--dry-run` to preview without writing.
-- `references/canvas-state.md` — current canvas layout, groups, node stats, and color scheme; consult before structural changes
+- `references/canvas-state.md` — legacy example snapshot, not the current state of any vault. Verify current state from the actual canvas; preserve existing user-maintained state during upgrades.
 - `references/canvas-layout-repair.md` — programmatic canvas layout repair: node-to-group assignment, dynamic height recalculation, row-based reflow, overlap verification. Use when the canvas becomes visually broken (overlapping rows, wrong group sizes, nodes outside groups). Contains full Python script template.
 
 ## Workflow
@@ -84,7 +103,7 @@ After all knowledge processing:
 - **Reconcile**: Ensure every knowledge note in `30 Knowledge/` has a corresponding node in the canvas. If any are missing, add them
 - **Remove stale**: If a knowledge note was deleted from `30 Knowledge/`, remove its node and edges from the canvas
 - **Update Knowledge Index**: Add new knowledge notes to `30 Knowledge/Knowledge Index.md`
-- **Update canvas-state.md**: Update `references/canvas-state.md` with the current date, stats, and any new node IDs added today (for tomorrow's stale-yellow reversion)
+- **Update canvas-state.md**: Update the selected private per-vault state file (not the packaged example) with the current date, stats, and any new node IDs added today (for tomorrow's stale-yellow reversion)
 - **🔒 Post-Update Canvas Audit (MANDATORY)**: After EVERY canvas write — whether adding nodes, updating edges, or adjusting layout — run a full format and layout audit. This is NOT optional. Skipping this step is the #1 cause of recurring formatting issues.
 
   1. **Load `obsidian-canvas-creator` skill** before starting the audit. It provides the layout algorithms, spacing constants, and validation patterns needed for a thorough review.
@@ -125,7 +144,7 @@ Summarize what changed:
 
 ## Canvas Layout Convention
 
-- **Group nodes** by knowledge domain. Groups are created as new domains emerge — do not limit to predefined categories. Current groups (see `99 System/Knowledge Canvas.canvas` and `references/canvas-state.md`):
+- **Group nodes** by knowledge domain. Groups are created as new domains emerge — do not limit to predefined categories. Example groups (inspect the current canvas and private per-vault state before using any of these):
   - **工程原则** (Engineering Principles) — foundational design philosophy
   - **工具与执行** (Tools & Execution) — implementation & tooling layer
   - **交互与自动化** (Interaction & Automation) — interaction paradigms
@@ -193,17 +212,17 @@ tags: []
 
 ## Pitfalls
 
-- **🚨 NEVER use `patch` tool to edit `.canvas` files.** This is the #1 failure mode. The `patch` tool encounters escape-drift errors with `\\\"` and `\\\\n` sequences in JSON canvas files — the error message says "Escape-drift detected" and the file is NOT modified. This will happen on EVERY attempt; retrying with different strings will also fail. Instead, write a Python script to a temp file (e.g. `/tmp/fix_canvas.py`) and run it via `terminal`. The script should: read the canvas JSON, apply color/node fixes programmatically, write back with `json.dump(..., indent=\"\\t\")`. This is the only reliable way to modify canvas JSON. The `scripts/fix-canvas-colors.py` script already exists for color fixes — prefer running it over writing ad-hoc scripts.
+- **Canvas persistence:** Prefer the guarded repair script for color fixes. Any other writer must validate a complete candidate, back up original bytes, detect intervening changes, and replace through a same-directory temporary file. Never truncate the live canvas or publish a partially validated result.
 
 - **Group colors drift over time.** After multiple canvas edits (especially by other tools or workflows), groups can pick up wrong colors (e.g. \"5\" or \"6\"). Always verify ALL group colors are \"4\" (green) during every sync, even when no new knowledge was added. This is the most common canvas violation.
 
-- **Stale yellow nodes accumulate.** Nodes added with color "3" must be reverted to "5" after 24 hours. Track node IDs from previous syncs (stored in `references/canvas-state.md`) and revert them programmatically. Yellow edges associated with those nodes must also be reverted.
+- **Stale yellow nodes accumulate.** Nodes added with color "3" must be reverted to "5" after 24 hours. Track node IDs from previous syncs (stored in the selected private per-vault state file) and revert them programmatically. Yellow edges associated with those nodes must also be reverted.
 
 - **canvas-state.md may drift from actual canvas content.** The `canvas-state.md` file records node IDs and their descriptions from the last sync, but the actual canvas JSON can be modified by other tools or workflows between sync runs. This causes node ID-description mismatches — e.g., `canvas-state.md` says node X has text A but the actual canvas has text B (or vice versa). Always **verify stale-yellow node IDs against the actual canvas content** before reverting. Do NOT blindly trust canvas-state.md's node descriptions. The `fix-canvas-colors.py` script relies on node colors (not descriptions), so it correctly handles mismatches — but the human-readable report should be written based on the actual canvas content, not canvas-state.md's stale records.
 
 - **Vault path not obvious.** The Obsidian vault is at a Google Drive path configured in `obsidian-wiki-skill/references/vault-config.md`. Always consult that reference first — the vault is NOT at `~/Documents/Obsidian Vault` or `~/Obsidian`.
 
-- **canvas-state.md patch leaves stale trailing content.** When using `patch` to update `references/canvas-state.md`, old stats lines can survive the patch if the old_string doesn't extend far enough. The result is a file that has both the new stats AND the previous run's stats at the bottom. Always read back the file after patching and remove any leftover stale lines. The `## Today's New Nodes` section is the natural boundary — nothing should appear after the last new-node-ID bullet.
+- **canvas-state.md patch leaves stale trailing content.** When using `patch` to update the private per-vault state file, old stats lines can survive the patch if the old_string doesn't extend far enough. The result is a file that has both the new stats AND the previous run's stats at the bottom. Always read back the file after patching and remove any leftover stale lines. The `## Today's New Nodes` section is the natural boundary — nothing should appear after the last new-node-ID bullet.
 
 - **Cron execution: memory is UNAVAILABLE.** Cron-spawned agents run with `skip_memory=True`, so they cannot read the vault path from memory or user profile. The cron job's prompt MUST include the absolute vault path explicitly (e.g. "The Obsidian vault is at /Users/.../the_ai_obsidian"). Alternatively, set `workdir` on the cron job to the vault path — this also injects `AGENTS.md` context. Without this, the cron agent will search for files in `~/.hermes/hermes-agent/` (the scheduler's cwd) and fail with "File not found" errors.
 

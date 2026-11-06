@@ -105,7 +105,7 @@ Execute the blueprint strictly. Do NOT re-analyze or change course mid-stream.
 4. **Create new knowledge notes** — only for insights that meet the "durable knowledge" bar: reusable beyond the source, synthesizes multiple sources, or represents a stable conclusion.
 5. **Update indices** — Sources Index (always), Knowledge Index (if new knowledge notes created).
 6. **Update log** — one concise entry summarizing what changed.
-7. **Git push** — use the safe clone+rsync pattern.
+7. **Optional publication** — Local editing does not authorize publication. Leave changes local unless the user explicitly authorized the repository, branch, and file scope. Follow [git-sync-pitfalls.md](git-sync-pitfalls.md) from an independent checkout; stop publication if configuration or permission is missing.
 
 ### Write Discipline
 

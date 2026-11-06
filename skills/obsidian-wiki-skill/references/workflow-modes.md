@@ -53,14 +53,14 @@ Preferred behavior:
 
 Use `ingest` when the user wants new material folded into the vault.
 
-**All non-trivial ingests follow a two-step CoT pattern**: analysis (Step 1) before writing (Step 2). See [two-step-ingest.md](references/two-step-ingest.md) for the full specification.
+**All non-trivial ingests follow a two-step CoT pattern**: analysis (Step 1) before writing (Step 2). See [two-step-ingest.md](two-step-ingest.md) for the full specification.
 
 Ingest flow:
 
 1. **Pre-process**: Parse external content (defuddle for URLs, browser fallback for JS-rendered pages).
 2. **Orient**: Understand vault conventions, existing notes in the source's domain.
 3. **Step 1 — Cognitive Audit**: Analyze source content against vault knowledge. Produce a structured ingest blueprint covering entity/concept extraction, connection mapping, gap analysis, and a write plan. Do NOT write any files yet.
-4. **Step 2 — Atomic Write**: Execute the blueprint in strict order: create source note → cross-verify → update knowledge notes → update indices → update log → git push → report.
+4. **Step 2 — Atomic Write**: Execute the blueprint in strict order: create source note → cross-verify → update knowledge notes → update indices → update log → optional authorized publication → report. Local editing does not authorize publication; leave changes local by default and use [git-sync-pitfalls.md](git-sync-pitfalls.md) only with an authorized repository, branch, and file scope.
 5. Summarize exactly what changed.
 
 Default rule:

@@ -1,0 +1,169 @@
+"""Shared structural/color validation and guarded canvas persistence.
+
+This is not a full JSON Canvas schema or layout validator. Stop all editors and
+sync writers before repair: the final comparison is not a filesystem CAS.
+"""
+import json
+import math
+import os
+from pathlib import Path
+import re
+import stat
+import tempfile
+
+
+class CanvasError(ValueError):
+    pass
+
+
+def parse_canvas(raw):
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise CanvasError(f"Duplicate JSON key: {key}")
+            result[key] = value
+        return result
+    def bad_constant(value):
+        raise CanvasError(f"Invalid JSON number: {value}")
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object,
+                          parse_constant=bad_constant)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise CanvasError(f"Invalid UTF-8 JSON: {exc}") from exc
+
+
+def validate(canvas, colors=True):
+    errors = []
+    if not isinstance(canvas, dict):
+        return ["Canvas must be an object"]
+    if not isinstance(canvas.get("nodes"), list) or not isinstance(canvas.get("edges"), list):
+        return ["Canvas must contain nodes and edges arrays"]
+    node_ids, edge_ids = set(), set()
+    for i, node in enumerate(canvas["nodes"]):
+        prefix = f"Node {i}"
+        if not isinstance(node, dict):
+            errors.append(f"{prefix}: must be an object")
+            continue
+        ident = node.get("id")
+        if not isinstance(ident, str) or not ident:
+            errors.append(f"{prefix}: id must be a nonempty string")
+        elif ident in node_ids:
+            errors.append(f"{prefix}: duplicate id {ident}")
+        else:
+            node_ids.add(ident)
+        kind = node.get("type")
+        if kind not in ("text", "group", "file", "link"):
+            errors.append(f"{prefix}: unsupported type")
+        for key in ("x", "y", "width", "height"):
+            value = node.get(key)
+            if (not isinstance(value, (int, float)) or isinstance(value, bool)
+                    or (isinstance(value, float) and not math.isfinite(value))
+                    or (key in ("width", "height") and value <= 0)):
+                errors.append(f"{prefix}: invalid {key}")
+        for field in ({"text": ("text",), "file": ("file",), "link": ("url",)}.get(kind, ()) if isinstance(kind, str) else ()):
+            if not isinstance(node.get(field), str):
+                errors.append(f"{prefix}: {field} must be a string")
+        if colors:
+            color = node.get("color")
+            if kind == "group" and color != "4":
+                errors.append(f"{prefix}: group color must be 4")
+            elif kind == "text" and color not in (None, "3", "4", "5", "6"):
+                errors.append(f"{prefix}: unexpected text color")
+            elif kind in ("file", "link") and color is not None and not (
+                    isinstance(color, str) and re.fullmatch(r"[1-6]|#[0-9a-fA-F]{6}", color)):
+                errors.append(f"{prefix}: invalid color")
+    for i, edge in enumerate(canvas["edges"]):
+        prefix = f"Edge {i}"
+        if not isinstance(edge, dict):
+            errors.append(f"{prefix}: must be an object")
+            continue
+        ident = edge.get("id")
+        if not isinstance(ident, str) or not ident:
+            errors.append(f"{prefix}: id must be a nonempty string")
+        elif ident in edge_ids or ident in node_ids:
+            errors.append(f"{prefix}: duplicate id {ident}")
+        else:
+            edge_ids.add(ident)
+        for field in ("fromNode", "toNode"):
+            value = edge.get(field)
+            if not isinstance(value, str) or value not in node_ids:
+                errors.append(f"{prefix}: invalid {field}")
+        if colors and edge.get("color") not in (None, "3", "5"):
+            errors.append(f"{prefix}: unexpected edge color")
+    return errors
+
+
+def snapshot(path):
+    path = Path(path)
+    entry = path.lstat()
+    if stat.S_ISLNK(entry.st_mode):
+        raise CanvasError("Refusing a symlink canvas")
+    if not stat.S_ISREG(entry.st_mode):
+        raise CanvasError("Canvas must be a regular file")
+    with path.open("rb") as handle:
+        before = os.fstat(handle.fileno())
+        if not stat.S_ISREG(before.st_mode):
+            raise CanvasError("Canvas must be a regular file")
+        raw = handle.read()
+        after = os.fstat(handle.fileno())
+    if fingerprint(before) != fingerprint(after):
+        raise CanvasError("Canvas changed while reading; retry with editors closed")
+    return raw, after
+
+
+def fingerprint(st):
+    return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+
+
+def assert_unchanged(path, original, original_stat):
+    raw, current_stat = snapshot(path)
+    if raw != original or fingerprint(current_stat) != fingerprint(original_stat):
+        raise CanvasError("Canvas changed since read; original was not replaced")
+
+
+def save_canvas(canvas, path, original, original_stat):
+    """Back up original bytes, then replace atomically; return backup filename.
+
+    A sidecar lock serializes this tool only. Editors/cloud sync do not honor it.
+    A retained backup is intentional even if replacement fails.
+    """
+    errors = validate(canvas)
+    if errors:
+        raise CanvasError("Invalid candidate: " + "; ".join(errors))
+    path = Path(path)
+    encoded = (json.dumps(canvas, ensure_ascii=False, indent="\t", allow_nan=False) + "\n").encode("utf-8")
+    lock = path.with_name(path.name + ".repair.lock")
+    lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    temp_name = None
+    try:
+        os.close(lock_fd)
+        assert_unchanged(path, original, original_stat)
+        backup_fd, backup_name = tempfile.mkstemp(prefix=path.name + ".backup-", dir=path.parent)
+        with os.fdopen(backup_fd, "wb") as handle:
+            handle.write(original)
+            handle.flush()
+            os.fsync(handle.fileno())
+        fd, temp_name = tempfile.mkstemp(prefix="." + path.name + ".repair-", dir=path.parent)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp_name, stat.S_IMODE(original_stat.st_mode))
+        assert_unchanged(path, original, original_stat)
+        os.replace(temp_name, path)
+        temp_name = None
+        return backup_name
+    finally:
+        if temp_name is not None:
+            os.unlink(temp_name)
+        os.unlink(lock)
+
+
+def resolve_path(argument=None):
+    if argument:
+        return argument
+    vault = os.environ.get("OBSIDIAN_VAULT_PATH")
+    if not vault:
+        raise CanvasError("Pass a canvas path or set OBSIDIAN_VAULT_PATH; no personal default is used")
+    return str(Path(vault).expanduser() / "99 System" / "Knowledge Canvas.canvas")

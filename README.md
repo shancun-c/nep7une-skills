@@ -57,7 +57,7 @@ cd nep7une-skills
 
 ### Codex
 
-Install all currently supported Codex skills:
+Install the default Codex skill (`obsidian-wiki-skill`):
 
 ```bash
 ./installers/install-codex.sh
@@ -280,3 +280,51 @@ Example prompts:
 - Historical and design documents live under `docs/`.
 - Runtime installs should copy only the relevant skill directory, not the whole repository.
 - Keep skill `name` values stable so existing invocations continue to work.
+
+
+## Safe installation and P0 regression checks
+
+Installers require Python 3 and Bash. They no longer use `rsync --delete`.
+A `--target` skill directory for Codex/Hermes must have the selected skill's name
+as its final path component. Collection names and skill names must be simple
+lowercase slugs; skills must appear in `registry.yaml`.
+
+- Use `--dry-run` first: it validates and previews without creating files or locks.
+- Stop the host runtime and editors before installing/updating. The lock only
+  coordinates these installers, not arbitrary editors or sync clients.
+- Fresh installs accept absent or empty dedicated directories. Existing nonempty
+  directories need this installer's `.nep7une-install.json` ownership manifest.
+  Older installations are deliberately not adopted automatically: install to a
+  new dedicated directory, review/migrate your local configuration and state,
+  then switch the runtime to it. Do not fabricate a marker to bypass the check.
+- Managed files changed locally cause a refusal rather than silent overwrite.
+  Unrelated files and the legacy `references/canvas-state.md` are retained.
+  Obsolete package files are also retained: use a fresh directory for upgrades
+  that require removing old files. This P0 patch does not implement pruning.
+- Updates stage a full copy and retain a `SKILL-UUID` directory under
+  `.nep7une-skill-backups` beside the configured skills root, outside skill discovery.
+  A custom target on a different filesystem from this backup location is refused
+  safely if the directory rename cannot cross filesystems. Existing file modes
+  are preserved, including permission-only local edits.
+  If interruption occurs between directory renames, inspect the backup and stage
+  before restoring the previous directory. Do not delete a stale install lock
+  until you have confirmed no installer is running. Backups may contain private
+  local configuration: keep them private and remove them only after validation.
+- Symlink paths/trees are refused. This conservative policy can reject otherwise
+  legitimate linked home directories; use an explicit real directory instead.
+- File snapshots detect changes during staging but cannot prevent a noncooperating
+  process from changing files immediately after the final check. This is not a
+  security boundary against a malicious local writer or a fully atomic multi-file
+  transaction. Do not update while a runtime or sync client is modifying files.
+
+Run the offline safety regression suite in a disposable checkout:
+
+```bash
+python3 -m unittest discover -s tests -v
+for script in installers/*.sh; do bash -n "$script"; done
+```
+
+Tests use temporary directories and local toy Git remotes only. They do not
+certify full Codex/Hermes/OpenClaw discovery or real Obsidian integration.
+Dependency coverage and other P1 findings from the audit are separate follow-up
+work; `--skip-deps` must not be taken as evidence that runtime dependencies exist.

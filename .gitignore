@@ -2,3 +2,5 @@
 .scaffold/
 .vendor/
 .private/
+__pycache__/
+*.py[cod]

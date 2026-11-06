@@ -92,12 +92,11 @@ else
   echo "Dependency check: skipped"
 fi
 
+# Python 3 provides path checks, ownership tracking and a recoverable update.
+command -v python3 >/dev/null || { echo "Python 3 is required." >&2; exit 1; }
+INSTALL_ARGS=(--repo "$REPO_ROOT" --source "$SOURCE" --target "$TARGET_PATH"
+  --root "$TARGET_ROOT" --skill "$SKILL_NAME" --collection "$COLLECTION_NAME")
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "Dry run: no files written."
-  rsync -an --delete --exclude '.DS_Store' "$SOURCE"/ "$TARGET_PATH"/
-  exit 0
+  INSTALL_ARGS+=(--dry-run)
 fi
-
-mkdir -p "$TARGET_PATH"
-rsync -a --delete --exclude '.DS_Store' "$SOURCE"/ "$TARGET_PATH"/
-echo "Installed $SKILL_NAME to $TARGET_PATH"
+python3 "$SCRIPT_DIR/safe-install.py" "${INSTALL_ARGS[@]}"
