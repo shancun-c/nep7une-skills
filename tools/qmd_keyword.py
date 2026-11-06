@@ -9,6 +9,7 @@ import queue
 import threading
 import time
 from types import SimpleNamespace
+from typing import Dict, List, Optional
 from urllib.parse import unquote, urlsplit
 
 MAX_BYTES = 1_000_000
@@ -112,9 +113,9 @@ def _hash(text: str) -> str:
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 
-def _search_experiment(query: str, *, root: Path, files: list[str], enabled: bool = False,
-           indexed_hashes: dict[str, str] | None = None, collection: str = 'authorized',
-           command: str = 'qmd', state_dir: Path | None = None, limit: int = 5,
+def _search_experiment(query: str, *, root: Path, files: List[str], enabled: bool = False,
+           indexed_hashes: Optional[Dict[str, str]] = None, collection: str = 'authorized',
+           command: str = 'qmd', state_dir: Optional[Path] = None, limit: int = 5,
            runner=None) -> dict:
     """No installation, indexing, mutation, models or server. Root is explicit consent scope.
 

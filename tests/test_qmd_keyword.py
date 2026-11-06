@@ -27,6 +27,33 @@ class QmdTests(unittest.TestCase):
             self.assertFalse(any(isinstance(node, ast.Attribute) and node.attr == 'is_relative_to'
                                  for node in ast.walk(tree)), name)
 
+    def test_pr_python38_syntax_and_known_api_regressions(self):
+        # A focused guard, not a substitute for running the actual 3.8 CI matrix.
+        import ast
+        root = Path(__file__).parents[1]
+        files = ['tools/qmd_keyword.py', 'tools/qmd_index_experiment.py',
+                 'tools/qmd_generation.py', 'tests/test_qmd_keyword.py',
+                 'tests/test_qmd_index_experiment.py', 'tests/test_qmd_generation.py',
+                 'tests/run_qmd_sealed_experiment.py', 'tests/process_helper.py',
+                 'tests/test_subprocess_limits.py', 'tests/test_canvas_safety.py',
+                 'tests/test_dependencies.py', 'tests/test_git_policy.py',
+                 'tests/test_install_safety.py', 'tests/test_python_install_smoke.py']
+        forbidden = {'is_relative_to', 'removeprefix', 'removesuffix', 'is_junction'}
+        for name in files:
+            tree = ast.parse((root / name).read_text(encoding='utf-8'), feature_version=8)
+            for node in ast.walk(tree):
+                # These files need no bitwise OR. Reject dict union (3.9+) and
+                # evaluated union type expressions (3.10+) alike.
+                self.assertFalse(isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr), name)
+                self.assertFalse(isinstance(node, ast.Attribute) and node.attr in forbidden, name)
+
+    def test_search_options_merge_without_mutating_defaults(self):
+        before = dict(self.args)
+        result = self.run_search(enabled=False)
+        self.assertEqual(result['mode'], 'literal')
+        self.assertEqual(self.args, before)
+        self.assertNotIn('enabled', self.args)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -41,7 +68,7 @@ class QmdTests(unittest.TestCase):
         self.calls.append((argv, kw))
         return SimpleNamespace(stdout=json.dumps([{'file':'qmd://authorized/a.md','line':2,'snippet':'UNTRUSTED'}]))
     def run_search(self, **kw):
-        return m._search_experiment('keyword', **(self.args | {'enabled':True, 'runner':self.runner} | kw))
+        return m._search_experiment('keyword', **({**self.args, 'enabled':True, 'runner':self.runner, **kw}))
     def test_disabled_never_calls_qmd(self):
         x=self.run_search(enabled=False);self.assertEqual(x['reason'],'qmd-disabled');self.assertFalse(self.calls)
     def test_success_rereads_source(self):
@@ -94,7 +121,7 @@ class QmdTests(unittest.TestCase):
         self.assertEqual(x['mode'],'literal');self.assertIn('new keyword',x['hits'][0]['text'])
     def test_non_hit_mutation_and_delete(self):
         b=self.root/'b.md';b.write_text('other',encoding='utf-8')
-        args={'files':['a.md','b.md'],'indexed_hashes':self.args['indexed_hashes'] | {'b.md':m._hash('other')}}
+        args={'files':['a.md','b.md'],'indexed_hashes':{**self.args['indexed_hashes'], 'b.md':m._hash('other')}}
         for delete in [False,True]:
             b.write_text('other',encoding='utf-8')
             def race(*a,**k):
