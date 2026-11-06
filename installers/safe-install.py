@@ -125,6 +125,13 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
         validate(repo, source, target, root, skill, collection)
         if snapshot(target) != before or snapshot(source) != package:
             raise ValueError('Source or target changed during planning; no installation performed.')
+        # Reinstalling the same package must not rename the active installation
+        # or accumulate full backups. Preserve mutable state and permission-only
+        # edits exactly as an ordinary update would. Recheck under our lock first.
+        if before and files == old and all(
+                before.get(rel, [None])[0] == package[rel][0] for rel in writes):
+            print(f'Already up to date: {target}')
+            return
         stage = Path(tempfile.mkdtemp(prefix='.' + skill + '.stage-', dir=target.parent))
         if target.exists():
             shutil.copytree(target, stage, dirs_exist_ok=True)

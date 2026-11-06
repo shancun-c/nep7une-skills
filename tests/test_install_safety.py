@@ -56,6 +56,63 @@ class InstallSafety(unittest.TestCase):
         self.install()
         self.assertEqual(before, mod.snapshot(self.target))
 
+    def test_unchanged_reinstall_does_not_swap_or_create_backup(self):
+        self.install()
+        (self.target / 'notes.txt').write_text('user notes')
+        (self.target / 'references/canvas-state.md').write_text('mutable state')
+        before = mod.snapshot(self.target)
+        marker = self.target / mod.MARKER
+        marker_stat = marker.stat()
+        with patch.object(mod.os, 'rename', side_effect=AssertionError('unexpected swap')):
+            self.install()
+            self.install()
+        self.assertEqual(before, mod.snapshot(self.target))
+        self.assertEqual(marker.stat().st_mtime_ns, marker_stat.st_mtime_ns)
+        self.assertFalse((self.root.parent / '.nep7une-skill-backups').exists())
+        self.assertFalse(self.target.with_name('.demo-skill.install-lock').exists())
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX permission bits are not supported on Windows')
+    def test_permission_only_edit_remains_noop(self):
+        self.install()
+        (self.target / 'SKILL.md').chmod(0o600)
+        with patch.object(mod.os, 'rename', side_effect=AssertionError('unexpected swap')):
+            self.install()
+        self.assertEqual((self.target / 'SKILL.md').stat().st_mode & 0o777, 0o600)
+        self.assertFalse((self.root.parent / '.nep7une-skill-backups').exists())
+
+    def test_missing_managed_file_is_restored(self):
+        self.install()
+        (self.target / 'SKILL.md').unlink()
+        self.install()
+        self.assertEqual((self.target / 'SKILL.md').read_text(), 'v1')
+        self.assertEqual(len(list((self.root.parent / '.nep7une-skill-backups')
+                                 .glob('demo-skill-*'))), 1)
+
+    def test_noop_rechecks_target_after_planning(self):
+        self.install()
+        original_validate = mod.validate
+        calls = 0
+        def changed_after_planning(*args, **kwargs):
+            nonlocal calls
+            original_validate(*args, **kwargs)
+            calls += 1
+            if calls == 2:
+                (self.target / 'SKILL.md').write_text('concurrent user edit')
+        with patch.object(mod, 'validate', side_effect=changed_after_planning):
+            with self.assertRaisesRegex(ValueError, 'changed during planning'):
+                self.install()
+        self.assertEqual((self.target / 'SKILL.md').read_text(), 'concurrent user edit')
+        self.assertFalse((self.root.parent / '.nep7une-skill-backups').exists())
+
+    def test_new_package_file_still_updates_and_backs_up(self):
+        self.install()
+        (self.source / 'new.txt').write_text('new package file')
+        self.install()
+        self.assertEqual((self.target / 'new.txt').read_text(), 'new package file')
+        backups = list((self.root.parent / '.nep7une-skill-backups').glob('demo-skill-*'))
+        self.assertEqual(len(backups), 1)
+        self.assertFalse((backups[0] / 'new.txt').exists())
+
     @unittest.skipIf(os.name == 'nt', 'POSIX permission bits are not supported on Windows')
     def test_local_mode_preserved(self):
         self.install()
@@ -143,6 +200,7 @@ class InstallSafety(unittest.TestCase):
 
     def test_failed_stage_preserves_original(self):
         self.install()
+        (self.source / 'SKILL.md').write_text('v2')
         before = mod.snapshot(self.target)
         with patch.object(mod.shutil, 'copy2', side_effect=OSError('disk full')):
             with self.assertRaises(OSError): self.install()
@@ -150,6 +208,7 @@ class InstallSafety(unittest.TestCase):
 
     def test_failed_swap_restores_original(self):
         self.install()
+        (self.source / 'SKILL.md').write_text('v2')
         before = mod.snapshot(self.target)
         real = os.rename
         def fail_stage(src, dst):
@@ -161,6 +220,7 @@ class InstallSafety(unittest.TestCase):
 
     def test_concurrent_edit_detected_before_swap(self):
         self.install()
+        (self.source / 'SKILL.md').write_text('v2')
         real = mod.shutil.copytree
         def concurrent(*args, **kwargs):
             result = real(*args, **kwargs)
