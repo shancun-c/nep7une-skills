@@ -1,45 +1,30 @@
-"""Verify Knowledge Canvas colors match skill conventions.
-Run after any canvas write to catch color errors early.
-"""
-import json, sys
+#!/usr/bin/env python3
+"""Read-only structural/color check using the same policy as the repair tool."""
+import argparse
+import sys
+from canvas_safety import CanvasError, parse_canvas, resolve_path, snapshot, validate
 
-RULES = {
-    "groups": "4",       # All groups must be green
-    "principles": "6",   # Foundational principle nodes
-    "established": "5",  # Established knowledge nodes
-    "new_today": "3",    # New knowledge added today
-}
 
-def verify(canvas_path: str) -> bool:
-    with open(canvas_path) as f:
-        canvas = json.load(f)
+def verify(canvas_path):
+    try:
+        raw, _ = snapshot(canvas_path)
+        errors = validate(parse_canvas(raw))
+    except (CanvasError, OSError, ValueError) as exc:
+        errors = [str(exc)]
+    for error in errors:
+        print(f"ERROR: {error}")
+    if not errors:
+        print("Canvas passes structural and color checks (not a layout or full-schema audit).")
+    return not errors
 
-    errors = []
-    texts = [n for n in canvas["nodes"] if n["type"] == "text"]
-    groups = [n for n in canvas["nodes"] if n["type"] == "group"]
-
-    # 1. All groups must be color "4" (green)
-    for g in groups:
-        if g["color"] != "4":
-            errors.append(f"Group '{g['label']}' has color '{g['color']}', must be '4'")
-
-    # 2. Check node colors (non-exhaustive; flags suspicious combos)
-    for t in texts:
-        title = t["text"].split("\n")[0].replace("**", "")[:50]
-        if t["color"] not in {"3", "5", "6"}:
-            errors.append(f"Node '{title}' has unexpected color '{t['color']}'")
-
-    if errors:
-        print("COLOR ERRORS:")
-        for e in errors:
-            print(f"  ✗ {e}")
-        return False
-    else:
-        print(f"✓ {len(groups)} groups all green")
-        print(f"✓ {len(texts)} text nodes — colors: 3/5/6 only")
-        return True
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else "99 System/Knowledge Canvas.canvas"
-    ok = verify(path)
-    sys.exit(0 if ok else 1)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("canvas_path", nargs="?")
+    args = parser.parse_args()
+    try:
+        path = resolve_path(args.canvas_path)
+    except CanvasError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0 if verify(path) else 1)

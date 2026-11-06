@@ -1,106 +1,71 @@
-# Git Sync Pitfalls for Obsidian Vaults
+# Git Sync Safety for Obsidian Vaults
 
-> Common failures when syncing a local Obsidian vault with a remote Git repository, and the safe patterns to use instead.
+## Default: local only
 
-## Core Rule
+Local editing does not authorize publication. Ingest and audit-repair finish with
+local changes and a report by default. A configured remote is not authorization.
+Publish only when the user explicitly authorized the destination repository,
+branch, and file scope. A standing permission must cover this exact publication.
+Missing permission or configuration pauses publication only, not permitted local work.
+Never use a personal repository or author-specific path as a fallback.
 
-**Never use `git reset --hard` on a vault working tree.** The local vault holds the latest content; the remote is usually stale. `reset --hard` replaces local files with old remote versions, destroying uncommitted work.
+## Non-negotiable boundaries
 
-## Common Failure Chain
+- Never initialize Git in the live vault or perform Git writes there.
+- Never reset vault files, force-push, rewrite remote history, or delete remote-only
+  files to make a sync succeed. The remote is not assumed stale or disposable.
+- Never copy the entire vault or stage all files indiscriminately. Use an explicit
+  reviewed file allowlist; exclude credentials, private configuration, runtime state,
+  caches, and unrelated files. Recheck sensitive material even on an allowed path.
+- Never copy `.git` metadata. Reject symlinks, absolute paths and `..` components in
+  the allowlist; resolve both source and destination within their respective roots.
+- Do not treat a timeout, rejected push, or divergence as permission to use a more
+  destructive command. Stop and report the actual state.
 
-1. Clone fails/timeouts because the repo is large (binary media, many commits)
-   → Symptom: `fetch-pack: unexpected disconnect while reading sideband packet`
-2. Agent tries `git init` + `git remote add` + `git fetch` in the vault directory
-3. Fetch succeeds (possibly needing `http.postBuffer` tweak)
-4. Agent tries `git checkout -b main origin/main` → fails because local files would be overwritten
-5. Agent escalates to `git reset --hard origin/main` → **destroys local changes**
+## Separate-checkout publication procedure
 
-## Safe Pattern: Init-in-Place with Merge
+This is a manual safety policy, not an automatic sync implementation. No command
+below grants permission. Complete the checks in order for every publication.
 
-When you need to sync a local vault that has no `.git` directory to a remote:
+1. Resolve [vault-config.md](vault-config.md). Verify exact remote URL, branch,
+   checkout path and allowed files against the user's authorization. The checkout
+   must be independent of and outside the vault; neither directory may contain
+   the other. If the checkout is missing, create a fresh clone of the approved
+   repository outside the vault. Stop if cloning or authentication fails.
+2. Require a clean checkout and no unrelated staged changes. Verify its current
+   branch, repository root, fetch URL and **all push URLs**, not just its folder
+   name. Stop on a mismatch; do not silently alter remote configuration. Disable
+   automatic publication by companion tools for this local-edit workflow.
+3. Fetch the approved branch. Require the checkout HEAD to equal that branch's
+   fetched remote tip before copying. If ahead, behind, or diverged, stop and
+   review the difference separately. Do not reset, merge, rebase, or force a sync
+   as an automatic recovery step.
+4. Record the fetched tip. Preview the approved files individually. Copy only
+   those regular files into the independent checkout, preserving all remote-only
+   and unrelated files. Do not use deletion mirroring. A deletion or overwrite
+   of independently changed remote content needs separate review and permission.
+5. Review the full diff and stage only the approved relative paths. Inspect the
+   staged diff again for sensitive data, unexpected deletion, binary content,
+   and any path outside the allowlist. Abort if the staged set differs from the
+   approved set. If there is no change, report that and stop without committing.
+6. Commit the reviewed changes locally on top of the recorded remote tip. Fetch
+   again immediately before publication and require that the remote tip still
+   matches the recorded tip. If it changed, stop without pushing; leave the
+   local commit available for review.
+7. Use an ordinary fast-forward push to the exact approved branch, with an
+   explicit refspec and no force options. A concurrent remote update can still
+   occur after the check: the ordinary push must reject it, not overwrite it.
+   On rejection or uncertainty, stop and inspect the remote before retrying.
+8. Read back the remote tip and files. Report publication only after the expected
+   commit and file set are verified. A successful local commit is not a publish.
 
-```bash
-# 1. Init git in the vault
-cd /path/to/vault
-git init
-git remote add origin <remote-url>
+## Recovery and failures
 
-# 2. Fetch remote (use http.postBuffer for large repos)
-git -c http.postBuffer=524288000 -c core.compression=0 fetch --depth 1 origin main
+If a destructive command was previously run, stop further writes. Look for a
+verified backup, editor history, filesystem snapshots, or repository history.
+Do not promise that a cloud-sync provider has recoverable versions. Present the
+available recovery choices without overwriting the user's current files.
 
-# 3. Inspect the diff FIRST — never reset
-git diff origin/main --stat | head -50
-
-# 4. If the diff looks reasonable, create a commit on top
-git add -A
-git commit -m "sync: local vault updates $(date +%Y-%m-%d)"
-
-# 5. Force-push (only if you're sure local is the authoritative version)
-git push origin main -f
-```
-
-## Alternative: Clone + Rsync
-
-When the remote repo is too large for in-place init:
-
-```bash
-# Clone into a temp directory
-git clone --depth 1 <remote-url> /tmp/vault-temp
-
-# Rsync local changes onto the clone (preserving .git)
-rsync -a --exclude='.git' --exclude='.obsidian/workspace.json' \
-  /path/to/vault/ /tmp/vault-temp/
-
-# Commit and push from the temp clone
-cd /tmp/vault-temp
-git add -A
-git commit -m "sync: local vault updates $(date +%Y-%m-%d)"
-git push origin main
-```
-
-## SSH Clone Timeout
-
-Large repos with many binary files (screenshots, PDFs, videos) can time out over SSH. Try these in order:
-
-```bash
-# 1. Increase buffer size (first attempt)
-git clone --depth 1 -c http.postBuffer=524288000 <remote-url>
-
-# 2. Blobless clone — fetches commit/tree objects only, skips large binaries.
-#    Clone succeeds but checkout may still time out if blobs are needed.
-git clone --depth 1 --filter=blob:none <remote-url>
-
-# 3. Blobless clone + sparse checkout — only checkout markdown files.
-#    Eliminates binary download/checkout entirely. Then rsync vault content on top.
-git clone --depth 1 --filter=blob:none <remote-url> /tmp/vault-temp
-cd /tmp/vault-temp
-git sparse-checkout init --cone
-git sparse-checkout set '*.md' '*.yaml' '*.json' 'AGENTS.md' 'SCHEMA.md'
-git checkout main
-rsync -a --exclude='.git' --exclude='.obsidian' /path/to/vault/ ./
-```
-
-## Push Timeout
-
-Large repos may also time out on `git push`. Increase the buffer and timeout:
-
-```bash
-git -c http.postBuffer=524288000 push origin main
-```
-
-## Pre-push Safety Checklist
-
-Before any `git push --force` on a vault repo:
-
-- [ ] Confirm this is the user's personal vault (not a shared repo)
-- [ ] Confirm the local vault has the latest content (not a stale clone)
-- [ ] Confirm no other collaborators have pushed to the remote since the last sync
-- [ ] If unsure, ask the user before force-pushing
-
-## Recovery After Reset --hard
-
-If `git reset --hard origin/main` was already executed:
-
-1. **Google Drive users**: Files have version history. Right-click → "Manage versions" (Google Drive web) or Finder → "Revert To" (macOS client). Restore the overwritten files one by one.
-2. **Non-Drive users**: Check local backup (Time Machine, etc.) or the remote's git history for the most recent content.
-3. **Last resort**: Reconstruct changes from session history (what the agent did in the current conversation).
+For network or authentication failures, report the exact blocked step and keep
+local work intact. Do not change credentials, system settings, repository access,
+or legal agreements as an automatic fallback.

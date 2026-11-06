@@ -239,7 +239,7 @@ Execute the blueprint in strict order. Do NOT re-analyze or change course mid-st
 4. **Create new knowledge notes** — only for insights that meet the durable knowledge bar. At most 1-2 per ingest. Promote information into knowledge or project notes only when it is worth retaining beyond the source note.
 5. **Update indices** — Sources Index (always), Knowledge Index (if new knowledge notes created), and any other index files the vault uses.
 6. **Update log** — one concise entry summarizing what changed, following the `## [YYYY-MM-DD] action | subject` format.
-7. **Push to GitHub** — After any ingest session that produced meaningful vault changes (new source notes, index updates, log entries), sync the vault to its remote Git repository. Use the safe clone+rsync pattern from [git-sync-pitfalls.md](references/git-sync-pitfalls.md) — never run git operations directly in the vault directory.
+7. **Optional publication** — Local editing does not authorize publication. Leave changes local by default. Publish only when the user has explicitly authorized the destination repository, branch, and file scope, using the separate-checkout policy in [git-sync-pitfalls.md](references/git-sync-pitfalls.md). Missing or incomplete configuration means stop the publication step, not the permitted local work.
 8. **Report what changed** — summarize to the user: new note(s), updated files, confidence level, and key insights.
 
 ### Guardrails
@@ -250,7 +250,7 @@ Execute the blueprint in strict order. Do NOT re-analyze or change course mid-st
 - Do not let `log.md` become an unbounded transcript; rotate it when it stops being a useful recent-history view.
 - Do not skip cross-verification for sources whose claims can be checked — unverified claims weaken the vault's trustworthiness over time.
 - When batch_search times out, fall back to individual search calls rather than skipping verification.
-- **Never assemble the ingest pipeline from standalone skills without loading this orchestrator first.** Loading `obsidian` + `defuddle` + `anysearch` individually and manually stitching the workflow causes Hermes Curator to detect a repeated pattern and auto-create a narrow redundant skill (e.g. `wechat-article-ingest`). This pollutes the skill library and misses the orchestration, cross-verification, and git-push steps that this skill provides.
+- **Never assemble the ingest pipeline from standalone skills without loading this orchestrator first.** Loading `obsidian` + `defuddle` + `anysearch` individually and manually stitching the workflow causes Hermes Curator to detect a repeated pattern and auto-create a narrow redundant skill (e.g. `wechat-article-ingest`). This pollutes the skill library and misses the orchestration, cross-verification, and optional publication checks that this skill provides.
 - **Blueprint discipline**: if Step 2 execution uncovers something the blueprint didn't account for, return to Step 1 before proceeding. Never let the write phase re-analyze — that defeats the purpose of decoupling.
 - **Index patch safety**: When appending a new entry to Sources Index or similar index files, avoid anchoring the `old_string` on an adjacent entry's text — minor whitespace or phrasing differences (e.g. `950 TWh` vs `950TWh`) will cause the patch to fail. **Even when the adjacent entry matches perfectly, anchoring on it as the sole match silently REMOVES that entry** because `patch` replaces the matched text entirely. Instead anchor on a stable structural element: a section heading, a blank line separator, or the final line of the file. After any index patch, verify the old entry is still present by reading back the file. See [two-step-ingest.md](references/two-step-ingest.md#pitfalls) for the correct fix recipe.
 
@@ -342,7 +342,7 @@ Rules:
 
 **Git operations on the vault are always high-risk.** Never `git reset --hard` on a vault working tree — the local vault holds the latest content. Read [git-sync-pitfalls.md](references/git-sync-pitfalls.md) before syncing a vault with a remote Git repository.
 
-**Safe GitHub push path**: Clone the remote to an independent directory (e.g. `~/code/<repo-name>/`), rsync the vault into it, then commit and push from there. Never init a `.git` directory inside the vault itself — the vault should remain a plain directory of Markdown files. After any write workflow (ingest or audit-repair), push vault changes to the remote repository using this path.
+**Publication is opt-in and separate from local editing.** Use an independent checkout of the explicitly authorized remote and branch, outside the vault. Never initialize Git in the vault. Copy only the reviewed file allowlist, preserve remote-only files, inspect the staged diff, and use an ordinary fast-forward push. Stop on divergence or an uncertain outcome. Never force-push, reset, or use a personal repository as a fallback. Follow [git-sync-pitfalls.md](references/git-sync-pitfalls.md); ingest and audit-repair never imply permission to publish.
 
 ## Routing Reminder
 
