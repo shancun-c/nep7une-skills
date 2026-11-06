@@ -189,7 +189,7 @@ Key features:
 - `obsidian-canvas-creator` — required (canvas read/write, layout algorithms)
 - `obsidian-markdown` — required for Codex (knowledge note creation)
 - `obsidian-wiki-skill` — recommended (vault orientation)
-- `json-canvas` — recommended (canvas file manipulation)
+- `json-canvas` is not a substitute for `obsidian-canvas-creator` in this workflow.
 - `defuddle` — optional (web content extraction)
 - `anysearch` — optional (cross-verification)
 
@@ -336,6 +336,16 @@ with synthetic dependency skills, repeated installation and byte comparisons.
 Installed canvas repair/verify CLIs are exercised on disposable canvas files.
 These checks validate packaging and command-line wiring, not real runtime skill
 discovery or Obsidian behavior. Missing required Wiki dependencies are checked
-for refusal. Knowledge Canvas dependency-manifest coverage remains follow-up work.
+for refusal. Knowledge Canvas dependency checks are matched against the registry for all three runtimes.
 UTF-8 registry/manifest reads are explicit rather than dependent on host locale.
 Native Windows/macOS execution remains unverified.
+
+Knowledge Canvas requires `obsidian-canvas-creator` in every runtime, plus
+`obsidian-markdown` in Codex or `obsidian` in Hermes. OpenClaw's additional
+Obsidian/Markdown companions are recommended. These are presence checks only:
+read each companion's instructions and verify compatible behavior before using
+it. The repository does not supply, pin, or certify these external skills.
+`json-canvas` may be installed for Wiki work but must not replace the mandatory
+Canvas Creator workflow. Missing required companions stop installation;
+recommended/optional gaps warn without blocking. `--skip-deps` explicitly bypasses
+these checks and does not establish runtime readiness.

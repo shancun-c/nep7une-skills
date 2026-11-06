@@ -6,6 +6,27 @@ skill_dependencies() {
   local level="$3"
 
   case "$runtime:$skill_name:$level" in
+    codex:knowledge-canvas-sync:required)
+      printf '%s\n' obsidian-canvas-creator obsidian-markdown
+      ;;
+    hermes:knowledge-canvas-sync:required)
+      printf '%s\n' obsidian-canvas-creator obsidian
+      ;;
+    openclaw:knowledge-canvas-sync:required)
+      printf '%s\n' obsidian-canvas-creator
+      ;;
+    codex:knowledge-canvas-sync:recommended)
+      printf '%s\n' obsidian-wiki-skill
+      ;;
+    hermes:knowledge-canvas-sync:recommended)
+      printf '%s\n' obsidian-markdown obsidian-wiki-skill
+      ;;
+    openclaw:knowledge-canvas-sync:recommended)
+      printf '%s\n' obsidian-markdown obsidian
+      ;;
+    *:knowledge-canvas-sync:optional)
+      printf '%s\n' defuddle anysearch
+      ;;
     codex:obsidian-wiki-skill:required)
       printf '%s\n' obsidian-markdown obsidian-cli obsidian-bases json-canvas
       ;;

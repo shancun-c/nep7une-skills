@@ -57,7 +57,6 @@ skills:
           - obsidian-markdown
         recommended:
           - obsidian-wiki-skill
-          - json-canvas
         optional:
           - defuddle
           - anysearch
@@ -68,7 +67,6 @@ skills:
         recommended:
           - obsidian-markdown
           - obsidian-wiki-skill
-          - json-canvas
         optional:
           - defuddle
           - anysearch
@@ -78,7 +76,6 @@ skills:
         recommended:
           - obsidian-markdown
           - obsidian
-          - json-canvas
         optional:
           - defuddle
           - anysearch
