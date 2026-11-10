@@ -6,8 +6,9 @@ from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
+import time
 from contextlib import closing
-from .qmd_index_experiment import identity, verify_unchanged, reject_sidecars, checked_index_snapshot
+from .qmd_index_experiment import identity, index_identity, verify_unchanged, reject_sidecars, checked_index_snapshot
 from .qmd_keyword import _bounded_run, _read, _hash, _is_within
 
 # Matches the pinned 2.8.3 normalization contract, using JS Unicode Script
@@ -32,6 +33,62 @@ def runtime_digest(root):
 
 
 
+# Fixed experimental budgets, not caller-controlled production tuning.
+NORMALIZER_BATCH_BYTES = 200000
+NORMALIZER_TOTAL_BYTES = 2000000
+NORMALIZER_TOTAL_OUTPUT_BYTES = 8000000
+NORMALIZER_MAX_ROWS = 2048
+NORMALIZER_MAX_BATCHES = 32
+NORMALIZER_SECONDS = 10
+
+
+def _normalize_rows(rows, node):
+    """Bound whole-row batches, cumulative input/output, process count and deadline."""
+    if len(rows) > NORMALIZER_MAX_ROWS:
+        raise ValueError('normalizer row budget exceeded')
+    batches, batch, batch_bytes, total = [], [], 2, 0
+    for _, col, path, title, body in rows:
+        values = [col+'/'+path, title, body]
+        encoded = json.dumps(values, ensure_ascii=False).encode('utf-8')
+        if len(encoded) > NORMALIZER_BATCH_BYTES:
+            raise ValueError('normalizer single row exceeds batch budget')
+        total += len(encoded)
+        if total > NORMALIZER_TOTAL_BYTES:
+            raise ValueError('normalizer cumulative input budget exceeded')
+        extra = len(encoded)-2 + (2 if batch else 0)
+        if batch and batch_bytes+extra > NORMALIZER_BATCH_BYTES:
+            batches.append(batch)
+            batch, batch_bytes = [], 2
+            extra = len(encoded)-2
+        batch.extend(values); batch_bytes += extra
+    if batch:
+        batches.append(batch)
+    if len(batches) > NORMALIZER_MAX_BATCHES:
+        raise ValueError('normalizer process budget exceeded')
+    deadline = time.monotonic()+NORMALIZER_SECONDS
+    normalized, output_bytes = [], 0
+    with tempfile.TemporaryDirectory(prefix='qmd-normalize-') as tmp:
+        p = Path(tmp)/'input.json'
+        for values in batches:
+            remaining = deadline-time.monotonic()
+            if remaining <= 0:
+                raise ValueError('normalizer cumulative deadline exceeded')
+            payload = json.dumps(values, ensure_ascii=False).encode('utf-8')
+            if len(payload) > NORMALIZER_BATCH_BYTES:
+                raise ValueError('normalizer batch budget exceeded')
+            p.write_bytes(payload)
+            result = _bounded_run([str(node), '-e', NORMALIZER, str(p)],
+                timeout=remaining, max_bytes=min(1000000, NORMALIZER_TOTAL_OUTPUT_BYTES-output_bytes))
+            output_bytes += len(result.stdout.encode('utf-8'))
+            if output_bytes > NORMALIZER_TOTAL_OUTPUT_BYTES or time.monotonic() > deadline:
+                raise ValueError('normalizer cumulative output/deadline exceeded')
+            norm = json.loads(result.stdout)
+            if not isinstance(norm, list) or len(norm) != len(values) or any(not isinstance(v, str) for v in norm):
+                raise ValueError('normalizer response mismatch')
+            normalized.extend(norm)
+    return normalized
+
+
 def verify_fts(manifest, node):
     """Compare exact normalized FTS stored rows and check FTS index structure in RAM."""
     index=Path(manifest['index']['path'])
@@ -49,15 +106,7 @@ def verify_fts(manifest, node):
                 raise ValueError('indexed body differs from authorized source')
         if {row[0] for row in db.execute('SELECT doc FROM content')}!=set(observed.values()):
             raise ValueError('unexpected stored source content')
-        expected=[]
-        for _,col,path,title,body in rows:expected.extend([col+'/'+path,title,body])
-        # Bounded harness: fail rather than produce unbounded validation payloads.
-        payload=json.dumps(expected,ensure_ascii=False).encode('utf-8')
-        if len(payload)>200000:raise ValueError('synthetic FTS fixture exceeds inspection limit')
-        with tempfile.TemporaryDirectory(prefix='qmd-normalize-') as tmp:
-            p=Path(tmp)/'input.json';p.write_bytes(payload)
-            norm=json.loads(_bounded_run([str(node),'-e',NORMALIZER,str(p)]).stdout)
-        if len(norm)!=len(rows)*3:raise ValueError('normalizer response mismatch')
+        norm = _normalize_rows(rows, node)
         wanted=[(row[0],*norm[i*3:i*3+3]) for i,row in enumerate(rows)]
         actual=db.execute('SELECT rowid,filepath,title,body FROM documents_fts ORDER BY rowid').fetchall()
         if actual!=wanted:raise ValueError('FTS normalized content mismatch')
@@ -67,7 +116,13 @@ def verify_fts(manifest, node):
             db.backup(copy)
             copy.execute("INSERT INTO documents_fts(documents_fts) VALUES('integrity-check')")
         finally:copy.close()
-    if identity(index)!=manifest['index']:raise ValueError('index changed during FTS check')
+    # Recheck every original and staged source after all batches, including
+    # documents verified before a concurrent writer changed them.
+    for name, expected_hash in manifest['sources'].items():
+        if (_hash(_read(Path(manifest['root']), name)) != expected_hash or
+                _hash(_read(Path(manifest['staging_root']), name)) != expected_hash):
+            raise ValueError('source changed during FTS check')
+    if index_identity(index)!=manifest['index']:raise ValueError('index changed during FTS check')
 
 
 def atomic_json(path,data):
@@ -189,7 +244,7 @@ def search_sealed_synthetic(query, *, state_dir, root, collection, expected_gene
         if hashlib.sha256(raw).hexdigest()!=m['config']['sha256'] or identity(config)!=m['config']:
             raise ValueError('config changed while capturing')
         (work/'config'/'index.yml').write_bytes(raw)
-        sealed=dict(m,index=identity(index))
+        sealed=dict(m,index=index_identity(index))
         verify_fts(sealed,Path(a['node']['path']))
         captured_digest=sealed['index']['sha256']
         def pinned(argv,**kwargs):
@@ -201,7 +256,7 @@ def search_sealed_synthetic(query, *, state_dir, root, collection, expected_gene
         # QMD may update metadata in its private copy. Verify effective content,
         # not unchanged physical bytes, after the process exits and closes SQLite.
         reject_sidecars(index)
-        sealed['index']=identity(index)
+        sealed['index']=index_identity(index)
         verify_fts(sealed,Path(a['node']['path']))
         if {n:_hash(_read(Path(root),n)) for n in m['sources']}!=m['sources']:
             raise ValueError('original source changed during sealed query')

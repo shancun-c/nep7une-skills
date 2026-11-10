@@ -125,28 +125,35 @@ def _search_experiment(query: str, *, root: Path, files: List[str], enabled: boo
     """
     if not isinstance(query, str) or not query.strip() or len(query) > 512 or query.startswith('-'):
         raise ValueError('nonempty keyword query required; no option-like input')
-    if not 1 <= limit <= 20 or not collection or '/' in collection:
+    if type(limit) is not int or not 1 <= limit <= 20 or not collection or '/' in collection:
         raise ValueError('invalid limit or collection')
     root = Path(root).resolve(strict=True)
     documents, unavailable = {}, []
-    for name in dict.fromkeys(files):
-        try:
-            documents[name] = _read(root, name)
-        except (OSError, ValueError, UnicodeError):
-            unavailable.append(name)
-    def literal(reason):
+    def read_sources():
+        for name in dict.fromkeys(files):
+            try:
+                yield name, _read(root, name)
+            except (OSError, ValueError, UnicodeError):
+                unavailable.append(name)
+    def literal(reason, source_items=None):
         hits = []
-        for name, text in documents.items():
+        folded_query = query.casefold()
+        for name, text in documents.items() if source_items is None else source_items:
+            # Still consume every requested source after the hit limit so missing,
+            # oversized, invalid-UTF-8 and unsafe paths keep their diagnostics.
+            if len(hits) == limit:
+                continue
             lines = text.splitlines()
             for i, line in enumerate(lines):
-                if query.casefold() in line.casefold():
+                if folded_query in line.casefold():
                     hits.append({'file': name, 'line': i + 1, 'text': '\n'.join(lines[max(0,i-1):i+2])})
                     break
-            if len(hits) == limit:
-                break
         return {'mode': 'literal', 'reason': reason, 'hits': hits, 'unavailable': unavailable}
     if not enabled:
-        return literal('qmd-disabled')
+        # The public adapter always takes this path. Stream source contents instead
+        # of retaining the complete corpus; the per-file byte limit still applies.
+        return literal('qmd-disabled', read_sources())
+    documents.update(read_sources())
     hashes = {name: _hash(text) for name, text in documents.items()}
     if unavailable or hashes != indexed_hashes:
         return literal('index-snapshot-missing-or-stale')

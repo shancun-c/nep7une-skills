@@ -204,6 +204,12 @@ Use this workflow for new source material. **All non-trivial ingests use a two-s
 
 Parse external content: when the source is a URL (WeChat, blog, news site), use `defuddle parse <url> --md` first to extract clean content. This is a pre-processing step before the vault-oriented workflow begins.
 
+For an explicitly selected local PDF or Office document, read
+[local-document-ingest.md](references/local-document-ingest.md) before conversion.
+It describes optional MarkItDown preprocessing, separate extraction-quality
+checks, and the handoff into this existing ingest workflow. It does not install
+software, enable cloud conversion, or authorize access to a real vault.
+
 **Pitfall — WeChat articles with JS-rendered content**: some WeChat articles return only footer text from `defuddle --md` (e.g. `： ， 。 视频 小程序 赞`). When this happens, fall back to `browser_navigate` + `browser_snapshot(full=true)` to capture the full article, then use `browser_console` with `document.querySelector('#js_content').innerText` to extract raw text for processing. The title can be recovered via `defuddle parse <url> -p title` even when the body is JS-rendered.
 
 ### Step 0.5: Orientation

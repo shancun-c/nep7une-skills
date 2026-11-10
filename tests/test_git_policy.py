@@ -11,6 +11,7 @@ import subprocess
 from process_helper import run as run_test_process
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / 'skills' / 'obsidian-wiki-skill'
@@ -50,11 +51,39 @@ class GitPolicyDocuments(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which('git'), 'Git not installed')
 class DisposableGitBehavior(unittest.TestCase):
+    def test_inherited_git_environment_cannot_redirect_fixture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # All poisoned paths are synthetic and absent. An inherited Git
+            # context must neither reach these paths nor change the fixture.
+            poisoned = {
+                'GIT_DIR': str(root / 'unrelated.git'),
+                'GIT_WORK_TREE': str(root / 'unrelated-worktree'),
+                'GIT_INDEX_FILE': str(root / 'unrelated-index'),
+                'GIT_OBJECT_DIRECTORY': str(root / 'unrelated-objects'),
+                'GIT_TEMPLATE_DIR': str(root / 'unrelated-templates'),
+                'GIT_CONFIG_COUNT': '1',
+                'GIT_CONFIG_KEY_0': 'core.bare',
+                'GIT_CONFIG_VALUE_0': 'true',
+                'GIT_CONFIG_PARAMETERS': "'core.bare=true'",
+                'GIT_ALLOW_PROTOCOL': 'https',
+            }
+            with patch.dict(os.environ, poisoned):
+                self.test_allowlisted_update_preserves_remote_and_rejects_divergence()
+            self.assertEqual(list(root.iterdir()), [])
+
     def test_allowlisted_update_preserves_remote_and_rejects_divergence(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            env = dict(os.environ, HOME=tmp, GIT_CONFIG_NOSYSTEM='1',
-                       GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0')
+            # HOME/global-config overrides alone do not isolate Git: inherited
+            # GIT_DIR, index/object paths, template paths and injected -c config
+            # can redirect commands or invoke host hooks. Drop every Git variable
+            # before setting the fixture's explicit local-only policy.
+            env = {key: value for key, value in os.environ.items()
+                   if not key.upper().startswith('GIT_')}
+            env.update(HOME=tmp, GIT_CONFIG_NOSYSTEM='1',
+                       GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0',
+                       GIT_ALLOW_PROTOCOL='file')
 
             def git(*args, cwd=None, ok=True, text=True):
                 r = run_test_process(['git', '-c', 'user.name=Fixture', '-c',

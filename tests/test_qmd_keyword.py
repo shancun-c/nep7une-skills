@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import sys
 import unittest
+from unittest import mock
 from types import SimpleNamespace
 
 spec = importlib.util.spec_from_file_location('qmd_keyword', Path(__file__).parents[1] / 'tools/qmd_keyword.py')
@@ -113,6 +114,59 @@ class QmdTests(unittest.TestCase):
         x=m.search('keyword', **self.args, enabled=True, runner=self.runner)
         self.assertEqual(x['reason'],'qmd-experimental-index-binding-unimplemented')
         self.assertEqual(x['mode'],'literal');self.assertFalse(self.calls)
+    def test_public_literal_matches_before_loading_next_source(self):
+        events = []
+        class TracedText(str):
+            def splitlines(self):
+                events.append(('match', str(self)))
+                return super().splitlines()
+        def read(root, name):
+            events.append(('read', name))
+            return TracedText(name)
+        with mock.patch.object(m, '_read', side_effect=read):
+            result = m.search('not present', root=self.root, files=['a.md', 'b.md'])
+        self.assertEqual(result['hits'], [])
+        self.assertEqual(events, [('read', 'a.md'), ('match', 'a.md'),
+                                  ('read', 'b.md'), ('match', 'b.md')])
+    def test_public_literal_limit_preserves_late_unavailable(self):
+        (self.root / 'invalid.md').write_bytes(b'\xff')
+        (self.root / 'oversized.md').write_bytes(b'x' * (m.MAX_BYTES + 1))
+        files = ['a.md', 'a.md', 'missing.md', 'invalid.md', 'oversized.md', '../outside']
+        result = m.search('KEYWORD', root=self.root, files=files, limit=1,
+                          enabled=True, runner=self.runner)
+        self.assertEqual(result['reason'], 'qmd-experimental-index-binding-unimplemented')
+        self.assertEqual(result['hits'], [{'file': 'a.md', 'line': 2,
+                                         'text': '# Synthetic\n关键词 keyword'}])
+        self.assertEqual(result['unavailable'], ['missing.md', 'invalid.md',
+                                                'oversized.md', '../outside'])
+        self.assertFalse(self.calls)
+    def test_noninteger_limits_rejected_before_source_reads(self):
+        # Numeric range comparisons alone accept floats and bools; a fractional
+        # limit can never equal the integer hit count and silently bypass the cap.
+        for limit in [1.5, 1.0, True, False, '5', None]:
+            for enabled in [False, True]:
+                with self.subTest(limit=repr(limit), enabled=enabled):
+                    with mock.patch.object(m, '_read') as read:
+                        with self.assertRaises(ValueError):
+                            m.search('keyword', root=self.root, files=['a.md'],
+                                     limit=limit, enabled=enabled, runner=self.runner)
+                        read.assert_not_called()
+        self.assertFalse(self.calls)
+
+    def test_public_integer_limit_bounds_cap_all_matching_files(self):
+        files = ['match-%d.md' % i for i in range(25)]
+        for name in files:
+            (self.root / name).write_text('keyword', encoding='utf-8')
+        for limit in [1, 5, 20]:
+            with self.subTest(limit=limit):
+                result = m.search('keyword', root=self.root, files=files, limit=limit)
+                self.assertEqual(len(result['hits']), limit)
+                self.assertEqual([hit['file'] for hit in result['hits']], files[:limit])
+        for limit in [0, 21, -1]:
+            with self.subTest(limit=limit):
+                with self.assertRaises(ValueError):
+                    m.search('keyword', root=self.root, files=files, limit=limit)
+
     def test_empty_result_mutation(self):
         def race(*a,**k):
             (self.root/'a.md').write_text('new keyword',encoding='utf-8')

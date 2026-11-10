@@ -27,3 +27,12 @@ For just these smoke tests:
 ```sh
 python -m unittest discover -s tests -p test_python_install_smoke.py -v
 ```
+
+## Optional workflow acceptance preparation
+
+[Synthetic acceptance preparation](../docs/optional-workflow-experiments.md)
+provides deterministic DOCX/canary fixtures and bounded output checks for future
+MarkItDown/Gitleaks experiments. The unit tests exercise only the generator and
+checker; they do not run, install, or certify either external tool. A matching
+synthetic output is not proof of tool execution, network isolation, or real-data
+readiness.

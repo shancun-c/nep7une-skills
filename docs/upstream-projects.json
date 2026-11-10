@@ -1,0 +1,113 @@
+{
+  "checked_at": "2026-11-07",
+  "target_repository": "shancun-c/nep7une-skills",
+  "target_baseline": "6f4ead640728712612b2caccfd20b856ea5879ec",
+  "status": "research_baseline_not_runtime_lock",
+  "notice": "Metadata is a dated research snapshot, not installation approval, compatibility certification, license advice, or a supply-chain verification.",
+  "projects": [
+    {
+      "repository": "microsoft/markitdown",
+      "url": "https://github.com/microsoft/markitdown",
+      "stars": 194235,
+      "repository_pushed_at": "2026-11-07T00:14:01Z",
+      "reviewed_head": "ed178952a6672abdfd35b5f9e76a80b6cefc086e",
+      "head_commit_at": "2026-11-07T00:14:01Z",
+      "archived": false,
+      "license": "MIT",
+      "license_blob_sha": "9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+      "license_url": "https://github.com/microsoft/markitdown/blob/ed178952a6672abdfd35b5f9e76a80b6cefc086e/LICENSE",
+      "readme_url": "https://github.com/microsoft/markitdown/blob/ed178952a6672abdfd35b5f9e76a80b6cefc086e/README.md",
+      "latest_release": {
+        "tag": "v0.1.9",
+        "published_at": "2026-10-21T19:40:32Z",
+        "url": "https://github.com/microsoft/markitdown/releases/tag/v0.1.9"
+      }
+    },
+    {
+      "repository": "docling-project/docling",
+      "url": "https://github.com/docling-project/docling",
+      "stars": 70243,
+      "repository_pushed_at": "2026-11-06T20:30:29Z",
+      "reviewed_head": "1e26b84c5f5690128ddcd65a20a5d7ffb9e80dcd",
+      "head_commit_at": "2026-11-06T20:30:28Z",
+      "archived": false,
+      "license": "MIT",
+      "license_blob_sha": "6684a401bf0f700fd37104ab7c8da340036f7166",
+      "license_url": "https://github.com/docling-project/docling/blob/1e26b84c5f5690128ddcd65a20a5d7ffb9e80dcd/LICENSE",
+      "readme_url": "https://github.com/docling-project/docling/blob/1e26b84c5f5690128ddcd65a20a5d7ffb9e80dcd/README.md",
+      "latest_release": {
+        "tag": "v2.148.0",
+        "published_at": "2026-11-05T16:49:41Z",
+        "url": "https://github.com/docling-project/docling/releases/tag/v2.148.0"
+      }
+    },
+    {
+      "repository": "lycheeverse/lychee",
+      "url": "https://github.com/lycheeverse/lychee",
+      "stars": 4100,
+      "repository_pushed_at": "2026-11-02T18:48:05Z",
+      "reviewed_head": "d119b686aba77707bb4fc2037bdce3eea0ccaee6",
+      "head_commit_at": "2026-11-02T12:51:41Z",
+      "archived": false,
+      "license": "MIT OR Apache-2.0",
+      "license_blob_sha": "65a3ce398f8f066564390386f5e7a1a81556fd9e",
+      "license_url": "https://github.com/lycheeverse/lychee/blob/d119b686aba77707bb4fc2037bdce3eea0ccaee6/LICENSE-MIT",
+      "readme_url": "https://github.com/lycheeverse/lychee/blob/d119b686aba77707bb4fc2037bdce3eea0ccaee6/README.md",
+      "latest_release": {
+        "tag": "lychee-v0.24.2",
+        "published_at": "2026-05-01T15:41:38Z",
+        "url": "https://github.com/lycheeverse/lychee/releases/tag/lychee-v0.24.2"
+      }
+    },
+    {
+      "repository": "gitleaks/gitleaks",
+      "url": "https://github.com/gitleaks/gitleaks",
+      "stars": 30748,
+      "repository_pushed_at": "2026-10-28T04:14:29Z",
+      "reviewed_head": "5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c",
+      "head_commit_at": "2026-10-23T20:44:59Z",
+      "archived": false,
+      "license": "MIT",
+      "license_blob_sha": "3c270b36c539ca8fbc4cc1017d3cbb7be1e44bbc",
+      "license_url": "https://github.com/gitleaks/gitleaks/blob/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c/LICENSE",
+      "readme_url": "https://github.com/gitleaks/gitleaks/blob/5f6ec56cfa6f8c67648d863582c7ae2f206d5c1c/README.md",
+      "latest_release": {
+        "tag": "v8.30.1",
+        "published_at": "2026-03-21T02:17:58Z",
+        "url": "https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1"
+      }
+    },
+    {
+      "repository": "aquasecurity/trivy",
+      "url": "https://github.com/aquasecurity/trivy",
+      "stars": 39087,
+      "repository_pushed_at": "2026-11-06T11:29:59Z",
+      "reviewed_head": "c22582a1a226379b070041a9e76dcd615c343328",
+      "head_commit_at": "2026-11-06T10:59:02Z",
+      "archived": false,
+      "license": "Apache-2.0",
+      "license_blob_sha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "license_url": "https://github.com/aquasecurity/trivy/blob/c22582a1a226379b070041a9e76dcd615c343328/LICENSE",
+      "readme_url": "https://github.com/aquasecurity/trivy/blob/c22582a1a226379b070041a9e76dcd615c343328/README.md",
+      "latest_release": {
+        "tag": "v0.76.2",
+        "published_at": "2026-11-05T12:50:25Z",
+        "url": "https://github.com/aquasecurity/trivy/releases/tag/v0.76.2"
+      }
+    },
+    {
+      "repository": "agentskills/agentskills",
+      "url": "https://github.com/agentskills/agentskills",
+      "stars": 27030,
+      "repository_pushed_at": "2026-11-04T19:47:27Z",
+      "reviewed_head": "83021e2be457a9b6679148719c1f6074f0ad975e",
+      "head_commit_at": "2026-11-04T19:47:24Z",
+      "archived": false,
+      "license": "Apache-2.0 (code); CC-BY-4.0 (documentation)",
+      "license_blob_sha": "a20f4476df158a57a68409015ea607c738856f57",
+      "license_url": "https://github.com/agentskills/agentskills/blob/83021e2be457a9b6679148719c1f6074f0ad975e/LICENSE",
+      "readme_url": "https://github.com/agentskills/agentskills/blob/83021e2be457a9b6679148719c1f6074f0ad975e/README.md",
+      "latest_release": null
+    }
+  ]
+}

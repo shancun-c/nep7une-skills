@@ -74,6 +74,9 @@ for script in installers/*.sh; do bash -n "$script"; done
 
 The tests use temporary files and toy local Git remotes. They do not install into
 your runtime, access a real vault, or certify external companion behavior.
+The disposable Git fixture drops inherited `GIT_*` variables, disables host Git
+configuration, and allows only the local file protocol for its toy remotes.
+These controls are scoped to child processes and do not change user settings.
 
 If you already have a Codex skill validator installed, its location varies by
 installation. Use its actual local path and follow its dependency instructions;
@@ -190,6 +193,19 @@ Example prompts:
 - Historical and design documents live under `docs/`.
 - Runtime installs should copy only the relevant skill directory, not the whole repository.
 - Keep skill `name` values stable so existing invocations continue to work.
+
+### Optional open-source workflows
+
+The [open-source roadmap](docs/open-source-roadmap.md) compares projects against
+capabilities already present here. The first additions are workflow guidance for
+local document conversion with MarkItDown and publication checks with Gitleaks.
+They are optional, not installed or executed by this collection, and have not
+been integration-tested here. Existing Defuddle, kepano companions, and disabled
+QMD experiments retain their current roles and boundaries.
+
+The dated [upstream snapshot](docs/upstream-projects.json) records reviewed source
+revisions, popularity, activity, and license references. It is research evidence,
+not a runtime dependency lock or permission to process private files.
 
 
 ## Safety and validation boundaries

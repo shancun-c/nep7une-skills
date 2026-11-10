@@ -48,6 +48,9 @@ below grants permission. Complete the checks in order for every publication.
    staged diff again for sensitive data, unexpected deletion, binary content,
    and any path outside the allowlist. Abort if the staged set differs from the
    approved set. If there is no change, report that and stop without committing.
+   Optional automated support is described in
+   [publication-secret-scan.md](publication-secret-scan.md). A scanner pass does
+   not replace this review, expand the file scope, or authorize publication.
 6. Commit the reviewed changes locally on top of the recorded remote tip. Fetch
    again immediately before publication and require that the remote tip still
    matches the recorded tip. If it changed, stop without pushing; leave the
