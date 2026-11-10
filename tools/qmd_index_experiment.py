@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import tempfile
 import uuid
 from contextlib import contextmanager, closing
@@ -17,20 +18,59 @@ except ImportError:
     from qmd_keyword import _read, _hash, _bounded_run, _is_within
 
 
-def identity(path):
+INDEX_MAX_BYTES = 64 * 1024 * 1024
+
+
+def identity(path, *, max_bytes=None):
+    """Hash a regular file, optionally with an enforced streaming byte budget.
+
+    Stat and descriptor checks detect ordinary replacement/growth. They do not
+    make opening paths safe against a malicious concurrent filesystem writer.
+    """
+    if max_bytes is not None and (type(max_bytes) is not int or max_bytes < 0):
+        raise ValueError('invalid identity byte budget')
     path = Path(path)
     if path.is_symlink():
         raise ValueError('symlink identity forbidden')
     before = path.stat()
-    digest = hashlib.sha256()
-    with path.open('rb') as f:
-        for block in iter(lambda: f.read(65536), b''):
-            digest.update(block)
-    after = path.stat()
+    if not stat.S_ISREG(before.st_mode):
+        raise ValueError('identity requires a regular file')
+    if max_bytes is not None and before.st_size > max_bytes:
+        raise ValueError('identity byte budget exceeded')
     fields = lambda s: (s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns)
-    if fields(before) != fields(after):
+    # Windows path stat and descriptor fstat can give st_ctime different
+    # meanings (creation versus change time). Compare birth time across APIs,
+    # but retain ctime in each API's before/after mutation check below.
+    def cross_fields(s):
+        values = fields(s)
+        if os.name == 'nt' and hasattr(s, 'st_birthtime_ns'):
+            return values[:-1] + (s.st_birthtime_ns,)
+        return values
+    digest = hashlib.sha256()
+    total = 0
+    with path.open('rb') as f:
+        opened = os.fstat(f.fileno())
+        if not stat.S_ISREG(opened.st_mode) or cross_fields(opened) != cross_fields(before):
+            raise ValueError('file changed before inspection')
+        while True:
+            read_size = 65536 if max_bytes is None else min(65536, max_bytes-total+1)
+            block = f.read(read_size)
+            if not block:
+                break
+            total += len(block)
+            if max_bytes is not None and total > max_bytes:
+                raise ValueError('identity byte budget exceeded')
+            digest.update(block)
+        finished = os.fstat(f.fileno())
+    after = path.stat()
+    if fields(opened) != fields(finished) or fields(before) != fields(after):
         raise ValueError('file changed during inspection')
     return {'path': str(path.resolve()), 'stat': list(fields(after)), 'sha256': digest.hexdigest()}
+
+
+def index_identity(path):
+    """Apply the synthetic SQLite size ceiling before and during every hash."""
+    return identity(path, max_bytes=INDEX_MAX_BYTES)
 
 
 def reject_sidecars(index):
@@ -49,21 +89,20 @@ def checked_index_snapshot(manifest):
     """
     index=Path(manifest['index']['path'])
     reject_sidecars(index)
-    if identity(index)!=manifest['index']:raise ValueError('index identity mismatch')
-    if index.stat().st_size>64*1024*1024:raise ValueError('synthetic index exceeds 64 MiB')
+    if index_identity(index)!=manifest['index']:raise ValueError('index identity mismatch')
     with index.open('rb') as source:
-        raw=source.read(64*1024*1024+1)
-    if len(raw)>64*1024*1024:raise ValueError('synthetic index grew beyond 64 MiB')
+        raw=source.read(INDEX_MAX_BYTES+1)
+    if len(raw)>INDEX_MAX_BYTES:raise ValueError('synthetic index grew beyond 64 MiB')
     if hashlib.sha256(raw).hexdigest()!=manifest['index']['sha256']:
         raise ValueError('copied index does not match manifest')
     reject_sidecars(index)
-    if identity(index)!=manifest['index']:raise ValueError('index changed during copy')
+    if index_identity(index)!=manifest['index']:raise ValueError('index changed during copy')
     with tempfile.TemporaryDirectory(prefix='qmd-checked-index-') as tmp:
         copy=Path(tmp)/'snapshot.sqlite';copy.write_bytes(raw)
         with closing(sqlite3.connect(copy.as_uri()+'?mode=ro&immutable=1',uri=True)) as db:
             yield db
     reject_sidecars(index)
-    if identity(index)!=manifest['index']:raise ValueError('index changed during verification')
+    if index_identity(index)!=manifest['index']:raise ValueError('index changed during verification')
 
 
 def build_synthetic(*, root, files, collection, command, state_dir,
@@ -104,7 +143,7 @@ def build_synthetic(*, root, files, collection, command, state_dir,
     if any(_read(root,name)!=text for name,text in before.items()):
         raise ValueError('source changed while building')
     reject_sidecars(index)
-    index_snapshot={'index':identity(index)}
+    index_snapshot={'index':index_identity(index)}
     with checked_index_snapshot(index_snapshot) as db:
         db.execute('BEGIN')
         if db.execute('PRAGMA integrity_check').fetchone()!=('ok',):
@@ -129,7 +168,7 @@ def build_synthetic(*, root, files, collection, command, state_dir,
     reject_sidecars(index)
     manifest={'schema':1,'generation':generation,'root':str(root),'staging_root':str(stage),
         'collection':collection,'qmd_version':version,'executable':executable,
-        'sources':{n:_hash(t) for n,t in before.items()},'index':identity(index),
+        'sources':{n:_hash(t) for n,t in before.items()},'index':index_identity(index),
         'config':identity(work/'config'/'index.yml'),
         'status':'content-verified-experimental-NOT-search-ready',
         'unverified':['FTS normalized body/token equivalence','dependency tree identity','atomic source filesystem snapshot']}
@@ -148,7 +187,8 @@ def verify_unchanged(manifest_path):
         raise ValueError('unsupported acceptance status')
     reject_sidecars(m['index']['path'])
     for key in ['index','config','executable']:
-        if identity(m[key]['path']) != m[key]:
+        inspect = index_identity if key == 'index' else identity
+        if inspect(m[key]['path']) != m[key]:
             raise ValueError(key+' replaced or changed')
     if {n:_hash(_read(Path(m['root']),n)) for n in m['sources']} != m['sources']:
         raise ValueError('original source changed')

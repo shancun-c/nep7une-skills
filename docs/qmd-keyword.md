@@ -17,6 +17,13 @@ this document does not claim that all querying is disabled.
   fallback. Passing enabled=True does not execute QMD. It reports the blocked
   state. `_search_experiment` is internal regression scaffolding, not a safe
   activation API.
+- Public literal fallback reads and matches each authorized file separately rather
+  than retaining the entire corpus. It continues checking files after the hit
+  limit to preserve unavailable-source diagnostics. The per-file byte limit is
+  unchanged; filenames, diagnostics and selected snippets still use memory.
+  Total file count and total scan time are not capped, and this is not an atomic
+  snapshot of files that other processes can edit concurrently. Internal QMD
+  experiments retain their existing source-snapshot behavior.
 - `search_active_synthetic` also rejects calls: no reliable exclusion of other
   SQLite writers during QMD's live-index query has been established. Users may
   explicitly use literal fallback separately; invalid generations never silently
@@ -52,6 +59,14 @@ the copy against the manifest digest, then opens this private copy using
 mode=ro&immutable=1. No unbound WAL can be merged into the inspected view. Any
 -wal, -shm or -journal entry (including zero-byte entries and symlinks) causes
 rejection before and after copying/inspection. Main file identity is rechecked.
+The 64 MiB ceiling applies before and during every index identity hash, not only
+when copying into SQLite. Identity checks reject observed non-regular files
+before opening them, compare the opened descriptor with the pre-open metadata,
+and detect size/identity changes after reading. This is not an atomic open or a
+hostile-filesystem sandbox: a malicious writer can still replace a path between
+checks, including with a special file before open. Use trusted private synthetic
+workspaces without concurrent writers. No process-tree or network isolation is
+established by these file checks.
 These checks detect observed changes; they do NOT lock other writers or prove a
 live QMD query used the verified view. That is why live query remains disabled.
 
@@ -222,3 +237,30 @@ run ended normally. Platform-specific limits and unverified scenarios described
 above remain applicable. These regression results do not constitute production
 or macOS acceptance. Public QMD search remains disabled; experiments use only
 synthetic data, with no real vault access or automatic model download.
+
+## Bounded normalization batches (synthetic experiment follow-up)
+
+The former single-payload 200KB inspection limit is superseded only within this
+synthetic experiment by whole-row batches, each still capped at 200,000 bytes.
+Fixed cumulative budgets are 2,000,000 input bytes, 8,000,000 output bytes,
+2,048 rows, 32 processes and 10 seconds shared by normalization invocations.
+Single-row oversize and cumulative preflight violations fail before starting
+Node. Each child retains a 1MB output cap. The deadline excludes initial source
+and DB scanning and subsequent integrity checking; this is not an OS resource
+quota. Exact FTS comparison and existing immutable DB capture remain required.
+All original and staged source hashes are rechecked after the batches. This
+catches persistent changes, not malicious transient changes between sequential
+checks; no source lock or same-user hostile-process protection is claimed.
+
+A synthetic SQLite/Node envelope with 512 tiny Chinese/English documents now
+passes (232,850-byte combined payload), while last-document FTS substitution
+still fails. The fixture was not built by actual QMD and proves neither real
+QMD recall nor production large-vault performance. The opt-in harness is
+`tests/run_qmd_inspection_scale.py`; no install or model download is performed.
+The initial QMD regression subset passed 54 tests on Linux/Python 3.12.14.
+Follow-up coverage adds malformed-output rejection and decreasing cross-batch
+time/output allowances; mock-only budget tests also run without Node. The full
+updated Linux suite passed 117 tests with no skips on Python 3.12.14.
+Independent review found no blocking regression. No new Windows, Python 3.8,
+or actual pinned-QMD integration run is claimed.
+Public search remains disabled and real vault access is outside this experiment.
