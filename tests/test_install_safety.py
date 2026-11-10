@@ -207,6 +207,124 @@ class InstallSafety(unittest.TestCase):
             with self.assertRaises(OSError): self.install()
         self.assertEqual(before, mod.snapshot(self.target))
 
+    def assert_bad_stage_refused(self, before):
+        with self.assertRaisesRegex(ValueError, 'Staged installation does not match'):
+            self.install()
+        self.assertEqual(before, mod.snapshot(self.target))
+        self.assertFalse((self.root.parent / '.nep7une-skill-backups').exists())
+        self.assertFalse(self.target.with_name('.demo-skill.install-lock').exists())
+        self.assertFalse(list(self.target.parent.glob('.demo-skill.stage-*')))
+
+    def test_corrupt_fresh_copy_is_not_installed(self):
+        real_copy = mod.shutil.copy2
+        def corrupt_copy(src, dst):
+            result = real_copy(src, dst)
+            if Path(src).name == 'SKILL.md':
+                Path(dst).write_bytes(b'truncated')
+            return result
+        with patch.object(mod.shutil, 'copy2', side_effect=corrupt_copy):
+            self.assert_bad_stage_refused({})
+        self.assertFalse(self.target.exists())
+
+    def test_corrupt_update_copy_preserves_original(self):
+        self.install()
+        before = mod.snapshot(self.target)
+        (self.source / 'SKILL.md').write_text('v2')
+        real_copy = mod.shutil.copy2
+        def corrupt_copy(src, dst):
+            result = real_copy(src, dst)
+            if Path(src).name == 'SKILL.md':
+                Path(dst).write_bytes(b'truncated')
+            return result
+        with patch.object(mod.shutil, 'copy2', side_effect=corrupt_copy):
+            self.assert_bad_stage_refused(before)
+
+    def test_missing_staged_file_is_not_installed(self):
+        real_copy = mod.shutil.copy2
+        def skip_copy(src, dst):
+            if Path(src).name != 'SKILL.md':
+                return real_copy(src, dst)
+        with patch.object(mod.shutil, 'copy2', side_effect=skip_copy):
+            self.assert_bad_stage_refused({})
+        self.assertFalse(self.target.exists())
+
+    def test_corrupt_preserved_user_file_refuses_update(self):
+        self.install()
+        (self.target / 'notes.txt').write_bytes(b'user data')
+        before = mod.snapshot(self.target)
+        (self.source / 'SKILL.md').write_text('v2')
+        real_copy = mod.shutil.copytree
+        def corrupt_copy(src, dst, *args, **kwargs):
+            result = real_copy(src, dst, *args, **kwargs)
+            if Path(src) == self.target:
+                (Path(dst) / 'notes.txt').write_bytes(b'truncated')
+            return result
+        with patch.object(mod.shutil, 'copytree', side_effect=corrupt_copy):
+            self.assert_bad_stage_refused(before)
+
+    def test_extra_staged_file_refuses_update(self):
+        self.install()
+        before = mod.snapshot(self.target)
+        (self.source / 'SKILL.md').write_text('v2')
+        real_copy = mod.shutil.copytree
+        def extra_copy(src, dst, *args, **kwargs):
+            result = real_copy(src, dst, *args, **kwargs)
+            if Path(src) == self.target:
+                (Path(dst) / 'unexpected.txt').write_bytes(b'not in plan')
+            return result
+        with patch.object(mod.shutil, 'copytree', side_effect=extra_copy):
+            self.assert_bad_stage_refused(before)
+
+    def test_lost_preserved_empty_directory_refuses_update(self):
+        self.install()
+        (self.target / 'user-empty-directory').mkdir()
+        before = mod.snapshot(self.target)
+        (self.source / 'SKILL.md').write_text('v2')
+        real_copy = mod.shutil.copytree
+        def incomplete_copy(src, dst, *args, **kwargs):
+            result = real_copy(src, dst, *args, **kwargs)
+            if Path(src) == self.target:
+                (Path(dst) / 'user-empty-directory').rmdir()
+            return result
+        with patch.object(mod.shutil, 'copytree', side_effect=incomplete_copy):
+            self.assert_bad_stage_refused(before)
+
+    def test_corrupt_staged_manifest_is_not_installed(self):
+        real_write = Path.write_bytes
+        def corrupt_marker(path, data):
+            if path.name == mod.MARKER:
+                data = b'{}'
+            return real_write(path, data)
+        with patch.object(Path, 'write_bytes', corrupt_marker):
+            self.assert_bad_stage_refused({})
+        self.assertFalse(self.target.exists())
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX permission bits are not supported on Windows')
+    def test_changed_staged_file_mode_is_not_installed(self):
+        (self.source / 'SKILL.md').chmod(0o640)
+        real_copy = mod.shutil.copy2
+        def wrong_mode_copy(src, dst):
+            result = real_copy(src, dst)
+            if Path(src).name == 'SKILL.md':
+                Path(dst).chmod(0o600)
+            return result
+        with patch.object(mod.shutil, 'copy2', side_effect=wrong_mode_copy):
+            self.assert_bad_stage_refused({})
+        self.assertFalse(self.target.exists())
+
+    def test_nested_new_files_and_preserved_entries_match_stage_plan(self):
+        self.install()
+        (self.target / 'user-empty-directory').mkdir()
+        (self.target / 'notes.txt').write_bytes(b'user data')
+        (self.target / 'references/canvas-state.md').write_bytes(b'current state')
+        (self.source / 'new/nested').mkdir(parents=True)
+        (self.source / 'new/nested/content.txt').write_bytes(b'new file')
+        self.install()
+        self.assertEqual((self.target / 'new/nested/content.txt').read_bytes(), b'new file')
+        self.assertTrue((self.target / 'user-empty-directory').is_dir())
+        self.assertEqual((self.target / 'notes.txt').read_bytes(), b'user data')
+        self.assertEqual((self.target / 'references/canvas-state.md').read_bytes(), b'current state')
+
     def test_failed_swap_restores_original(self):
         self.install()
         (self.source / 'SKILL.md').write_text('v2')

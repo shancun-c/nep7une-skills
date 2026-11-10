@@ -32,6 +32,11 @@ backups are not a substitute for a vault backup.
   `SKILL-UUID` directory within `.nep7une-skill-backups` beside the skills root,
   outside skill discovery. Backups may include private configuration/state.
   Keep them private; never upload them to a public repository.
+- Before any directory swap, the staged tree must match the planned package bytes,
+  preserved local files/directories, ownership manifest, and copied permission bits.
+  A missing, corrupt, or unexpected staged entry refuses the update while keeping
+  the live target unchanged. This is a point-in-time check, not protection against
+  concurrent writers or storage failures after verification.
 - Custom targets on another filesystem may be refused when directory rename
   cannot cross filesystems. Keep staging/backup/target on a compatible filesystem.
 
@@ -74,6 +79,7 @@ validation, not an automatic part of uninstalling.
 | Required dependency missing | Install the trusted required companion in the selected skills root; check the dependency table. Do not use bypass as proof of readiness. |
 | Missing ownership manifest | Legacy or unrelated nonempty target; use a new dedicated root and review migration. |
 | Managed file changed | Preserve local edits and compare with source before deciding how to migrate. |
+| Staged installation does not match the plan | The replacement copy failed verification. The live target was not swapped; check the source, storage, and other writers before retrying. |
 | Invalid target name / symlink | Check skill name and use a real dedicated target directory. |
 | Lock or backup/stage remains | Confirm no active writer, preserve evidence, and inspect recovery state before any retry. |
 | Install succeeds but runtime cannot see skill | Files copied successfully does not imply runtime discovery; check the runtime's documented search paths and nested collection support. |
