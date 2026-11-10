@@ -83,4 +83,22 @@ validation, not an automatic part of uninstalling.
 | Invalid target name / symlink | Check skill name and use a real dedicated target directory. |
 | Lock or backup/stage remains | Confirm no active writer, preserve evidence, and inspect recovery state before any retry. |
 | Install succeeds but runtime cannot see skill | Files copied successfully does not imply runtime discovery; check the runtime's documented search paths and nested collection support. |
-| Canvas check fails | Read the exact structural/color errors; it is not a full schema/layout check. Preview any repair on a copy first. |
+| Canvas check fails | Read the exact JSON/structural/color errors; it is not a full schema/layout check. Preview any repair on a copy first. |
+
+### Canvas JSON limits
+
+Verification and repair reject non-finite numbers (including overflowing JSON
+exponents such as `1e999`) and unpaired Unicode surrogates throughout the
+document, including extension metadata and object keys. Valid Unicode, including
+escaped surrogate pairs representing supplementary characters, is retained.
+
+JSON object/array nesting is limited to 64 containers, counting the root object
+as one. Brackets inside strings do not count. This limit is checked before JSON
+decoding, and the same limits apply to programmatic validation and save
+candidates. Invalid input is refused before color repair, backups, locks, or
+replacement files are created. A rejected file must be corrected or flattened
+in a reviewed copy rather than silently losing its extension data.
+
+These checks are not a full JSON Canvas schema audit, a file-size or memory
+budget, or protection against concurrent editors. Existing backup and
+concurrent-writer limitations still apply.

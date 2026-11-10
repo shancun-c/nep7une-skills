@@ -16,24 +16,96 @@ class CanvasError(ValueError):
     pass
 
 
+MAX_JSON_DEPTH = 64
+
+
+def check_json_depth(text):
+    """Bound container nesting before decoding; brackets inside strings do not count."""
+    depth, in_string, escaped = 0, False, False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > MAX_JSON_DEPTH:
+                raise CanvasError(f"JSON nesting exceeds {MAX_JSON_DEPTH} containers")
+        elif char in "]}":
+            depth -= 1
+
+
+def check_json_values(value):
+    """Check all JSON values, including extension fields, without recursion.
+
+    The document root counts as one container. Iterators keep auxiliary memory
+    proportional to depth rather than the number of members in a large object.
+    This also bounds cyclic programmatic candidates before serialization.
+    """
+    stack = [(iter((value,)), 0)]
+    while stack:
+        values, depth = stack[-1]
+        try:
+            current = next(values)
+        except StopIteration:
+            stack.pop()
+            continue
+        if isinstance(current, str):
+            if any(0xD800 <= ord(char) <= 0xDFFF for char in current):
+                raise CanvasError("JSON strings must not contain unpaired surrogates")
+        elif isinstance(current, float):
+            if not math.isfinite(current):
+                raise CanvasError("JSON numbers must be finite")
+        elif isinstance(current, (dict, list)):
+            if depth >= MAX_JSON_DEPTH:
+                raise CanvasError(f"JSON nesting exceeds {MAX_JSON_DEPTH} containers")
+            if isinstance(current, dict):
+                for key in current:
+                    if not isinstance(key, str):
+                        raise CanvasError("JSON object keys must be strings")
+                    if any(0xD800 <= ord(char) <= 0xDFFF for char in key):
+                        raise CanvasError("JSON strings must not contain unpaired surrogates")
+                children = iter(current.values())
+            else:
+                children = iter(current)
+            stack.append((children, depth + 1))
+        elif current is not None and not isinstance(current, (int, bool)):
+            raise CanvasError("Canvas contains a non-JSON value")
+
+
 def parse_canvas(raw):
     def unique_object(pairs):
         result = {}
         for key, value in pairs:
             if key in result:
-                raise CanvasError(f"Duplicate JSON key: {key}")
+                raise CanvasError(f"Duplicate JSON key: {key!a}")
             result[key] = value
         return result
     def bad_constant(value):
         raise CanvasError(f"Invalid JSON number: {value}")
     try:
-        return json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object,
-                          parse_constant=bad_constant)
-    except (UnicodeError, json.JSONDecodeError) as exc:
+        text = raw.decode("utf-8")
+        check_json_depth(text)
+        canvas = json.loads(text, object_pairs_hook=unique_object,
+                            parse_constant=bad_constant)
+        check_json_values(canvas)
+        return canvas
+    except CanvasError:
+        raise
+    except (UnicodeError, ValueError, RecursionError) as exc:
         raise CanvasError(f"Invalid UTF-8 JSON: {exc}") from exc
 
 
 def validate(canvas, colors=True):
+    try:
+        check_json_values(canvas)
+    except CanvasError as exc:
+        return [str(exc)]
     errors = []
     if not isinstance(canvas, dict):
         return ["Canvas must be an object"]
