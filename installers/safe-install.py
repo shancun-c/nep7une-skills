@@ -47,6 +47,30 @@ def snapshot(root):
     return result
 
 
+def verify_stage(stage, before, package, writes, marker_bytes):
+    """Check the actual replacement, not just unchanged source/target trees.
+
+    Copy operations can fail silently or produce unexpected output. Build the
+    expected tree from the plan so neither corrupt package bytes nor lost local
+    files can be promoted. New directory/marker modes follow the local umask;
+    modes on copied files and preexisting entries must remain as planned.
+    """
+    expected = dict(before)
+    for rel in writes:
+        expected[rel] = [package[rel][0], before.get(rel, package[rel])[1]]
+        for parent in Path(rel).parents:
+            if parent == Path('.'):
+                break
+            expected.setdefault(parent.as_posix() + '/', ['directory', None])
+    expected[MARKER] = [digest(marker_bytes), before.get(MARKER, [None, None])[1]]
+    actual = snapshot(stage)
+    if (actual.keys() != expected.keys() or any(
+            actual[rel][0] != value[0]
+            or (value[1] is not None and actual[rel][1] != value[1])
+            for rel, value in expected.items())):
+        raise ValueError('Staged installation does not match the plan; original retained.')
+
+
 def validate(repo, source, target, root, skill, collection):
     if not SLUG.fullmatch(skill) or not SLUG.fullmatch(collection):
         raise ValueError('Skill and collection must be simple lowercase slugs.')
@@ -141,8 +165,10 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
             shutil.copy2(source / rel, dest)
             if rel in before:
                 os.chmod(dest, before[rel][1])  # Preserve local permission-only edits.
-        (stage / MARKER).write_text(json.dumps({'schema': 1, 'skill': skill,
-            'collection': collection, 'files': files}, indent=2) + '\n', encoding='utf-8')
+        marker_bytes = (json.dumps({'schema': 1, 'skill': skill,
+            'collection': collection, 'files': files}, indent=2) + '\n').encode('utf-8')
+        (stage / MARKER).write_bytes(marker_bytes)
+        verify_stage(stage, before, package, writes, marker_bytes)
         if snapshot(target) != before or snapshot(source) != package:
             raise ValueError('Source or target changed during staging; original retained.')
         no_symlinks(target)
