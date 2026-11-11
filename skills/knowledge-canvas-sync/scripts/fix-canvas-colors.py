@@ -8,7 +8,7 @@ import argparse
 import copy
 import os
 import sys
-from canvas_safety import CanvasError, parse_canvas, resolve_path, save_canvas, snapshot, validate
+from canvas_safety import CanvasError, encode_canvas, parse_canvas, resolve_path, save_canvas, snapshot, validate
 
 
 def fix_and_verify(canvas_path, dry_run=False):
@@ -39,9 +39,12 @@ def fix_and_verify(canvas_path, dry_run=False):
                 result["fixes"].append(f"Edge {edge['id']}: 3 -> 5")
         result["errors"] = validate(candidate)
         result["stats"] = {"groups": len(groups), "text_nodes": len(texts), "edges": len(candidate["edges"])}
-        if result["fixes"] and not result["errors"] and not dry_run:
-            result["backup"] = save_canvas(candidate, canvas_path, original, original_stat)
-            result["saved"] = True
+        if result["fixes"] and not result["errors"]:
+            if dry_run:
+                encode_canvas(candidate)  # Preview must also fit the write budget.
+            else:
+                result["backup"] = save_canvas(candidate, canvas_path, original, original_stat)
+                result["saved"] = True
     except (CanvasError, OSError, ValueError) as exc:
         result["errors"].append(str(exc))
     return result
