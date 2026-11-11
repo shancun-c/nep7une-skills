@@ -99,6 +99,21 @@ candidates. Invalid input is refused before color repair, backups, locks, or
 replacement files are created. A rejected file must be corrected or flattened
 in a reviewed copy rather than silently losing its extension data.
 
-These checks are not a full JSON Canvas schema audit, a file-size or memory
-budget, or protection against concurrent editors. Existing backup and
-concurrent-writer limitations still apply.
+Canvas input and formatted repair output are each limited to **16 MiB
+(16,777,216 UTF-8 bytes)**. Whitespace and the output's final newline count.
+File size is checked before opening and again on the opened file; the read
+itself stops after the limit plus one byte to detect growth. Direct parsing
+uses the same input limit. Repair serializes incrementally and stops if the
+formatted output would exceed the limit, before creating a lock or backup.
+Dry-run repairs enforce the same output limit as writes.
+
+A compact file may fit the input limit but exceed the output limit after
+indentation. In that case, preview and repair refuse the write and leave the
+original intact. An already-correct compact canvas is not reformatted. Split
+or reduce an oversized canvas in a separate reviewed copy; these tools do not
+truncate data or offer a bypass flag.
+
+These are byte and nesting budgets, not a process-memory/RSS cap, full JSON
+Canvas schema audit, or protection against concurrent editors. Parsed objects,
+repair copies, and encoder chunks still use additional memory. Existing backup
+and concurrent-writer limitations still apply.

@@ -17,6 +17,7 @@ class CanvasError(ValueError):
 
 
 MAX_JSON_DEPTH = 64
+MAX_CANVAS_BYTES = 16 * 1024 * 1024
 
 
 def check_json_depth(text):
@@ -79,6 +80,8 @@ def check_json_values(value):
 
 
 def parse_canvas(raw):
+    if len(raw) > MAX_CANVAS_BYTES:
+        raise CanvasError(f"Canvas input exceeds {MAX_CANVAS_BYTES} bytes")
     def unique_object(pairs):
         result = {}
         for key, value in pairs:
@@ -173,11 +176,17 @@ def snapshot(path):
         raise CanvasError("Refusing a symlink canvas")
     if not stat.S_ISREG(entry.st_mode):
         raise CanvasError("Canvas must be a regular file")
+    if entry.st_size > MAX_CANVAS_BYTES:
+        raise CanvasError(f"Canvas input exceeds {MAX_CANVAS_BYTES} bytes")
     with path.open("rb") as handle:
         before = os.fstat(handle.fileno())
         if not stat.S_ISREG(before.st_mode):
             raise CanvasError("Canvas must be a regular file")
-        raw = handle.read()
+        if before.st_size > MAX_CANVAS_BYTES:
+            raise CanvasError(f"Canvas input exceeds {MAX_CANVAS_BYTES} bytes")
+        raw = handle.read(MAX_CANVAS_BYTES + 1)
+        if len(raw) > MAX_CANVAS_BYTES:
+            raise CanvasError(f"Canvas input exceeds {MAX_CANVAS_BYTES} bytes")
         after = os.fstat(handle.fileno())
     if fingerprint(before) != fingerprint(after):
         raise CanvasError("Canvas changed while reading; retry with editors closed")
@@ -194,6 +203,29 @@ def assert_unchanged(path, original, original_stat):
         raise CanvasError("Canvas changed since read; original was not replaced")
 
 
+def encode_canvas(canvas):
+    """Bound the UTF-8 replacement, including formatting and its final newline.
+
+    Stop consuming encoder chunks at the budget instead of constructing an
+    arbitrarily large formatted document. This is a byte budget, not an RSS cap.
+    """
+    data, size = bytearray(), 1  # Reserve the final newline.
+    encoder = json.JSONEncoder(ensure_ascii=False, indent="\t", allow_nan=False)
+    for chunk in encoder.iterencode(canvas):
+        remaining = MAX_CANVAS_BYTES - size
+        # UTF-8 needs at least one byte per character. Avoid encoding a huge
+        # scalar chunk that already cannot fit, then check multibyte text too.
+        if len(chunk) > remaining:
+            raise CanvasError(f"Canvas output exceeds {MAX_CANVAS_BYTES} bytes")
+        raw = chunk.encode("utf-8")
+        size += len(raw)
+        if size > MAX_CANVAS_BYTES:
+            raise CanvasError(f"Canvas output exceeds {MAX_CANVAS_BYTES} bytes")
+        data.extend(raw)
+    data.append(10)
+    return bytes(data)
+
+
 def save_canvas(canvas, path, original, original_stat):
     """Back up original bytes, then replace atomically; return backup filename.
 
@@ -204,7 +236,7 @@ def save_canvas(canvas, path, original, original_stat):
     if errors:
         raise CanvasError("Invalid candidate: " + "; ".join(errors))
     path = Path(path)
-    encoded = (json.dumps(canvas, ensure_ascii=False, indent="\t", allow_nan=False) + "\n").encode("utf-8")
+    encoded = encode_canvas(canvas)
     lock = path.with_name(path.name + ".repair.lock")
     lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     temp_name = None
