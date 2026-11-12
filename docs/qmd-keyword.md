@@ -264,3 +264,13 @@ updated Linux suite passed 117 tests with no skips on Python 3.12.14.
 Independent review found no blocking regression. No new Windows, Python 3.8,
 or actual pinned-QMD integration run is claimed.
 Public search remains disabled and real vault access is outside this experiment.
+
+### Literal source snapshots
+
+The literal reader checks each source's regular-file identity against its opened
+file descriptor, before and after a bounded read, and checks the canonical root
+and parent-directory identities. Detected replacements, symlinks/reparse points,
+or changes during reading are reported in `unavailable`, without returning that
+source's content. The supplied root is resolved before use, as before; its resolved
+target defines the authorized scope. This is a per-file check, not an atomic
+corpus snapshot or a guarantee of isolation from malicious concurrent writers.

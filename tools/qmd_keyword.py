@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import stat
 import queue
 import threading
 import time
@@ -93,17 +94,62 @@ def _is_within(path: Path, root: Path) -> bool:
 
 
 def _read(root: Path, relative: str) -> str:
-    p = root / relative
-    if Path(relative).is_absolute() or '..' in Path(relative).parts:
+    """Return a bounded stable regular-file snapshot, or refuse it.
+
+    Path/descriptor checks detect replacement and ordinary concurrent writes.
+    They are not writer exclusion against a malicious filesystem actor.
+    """
+    parts = Path(relative).parts
+    if Path(relative).is_absolute() or '..' in parts or not parts:
         raise ValueError('unsafe path')
-    # Reject links even when they currently point inside the root.
-    if any((root.joinpath(*Path(relative).parts[:i])).is_symlink()
-           for i in range(1, len(Path(relative).parts) + 1)):
-        raise ValueError('symlink')
-    if not _is_within(p.resolve(), root) or not p.is_file():
+    p = root / relative
+
+    def fields(s):
+        return (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+
+    def cross_fields(s):
+        values = fields(s)
+        # Windows path and descriptor ctime can mean creation/change time.
+        if os.name == 'nt' and hasattr(s, 'st_birthtime_ns'):
+            return values[:-1] + (s.st_birthtime_ns,)
+        return values
+
+    def checked_stat(path, directory=False):
+        value = path.lstat()
+        # Reject Windows junctions and other reparse points as well as symlinks.
+        reparse = getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0)
+        if stat.S_ISLNK(value.st_mode) or getattr(value, 'st_file_attributes', 0) & reparse:
+            raise ValueError('symlink or reparse point')
+        if not (stat.S_ISDIR(value.st_mode) if directory else stat.S_ISREG(value.st_mode)):
+            raise ValueError('unavailable source')
+        return value
+
+    parents = [root] + [root.joinpath(*parts[:i]) for i in range(1, len(parts))]
+    parent_ids = [(s.st_dev, s.st_ino) for s in
+                  (checked_stat(parent, directory=True) for parent in parents)]
+    before = checked_stat(p)
+    if before.st_size > MAX_BYTES:
+        raise ValueError('oversized source')
+    if not _is_within(p.resolve(strict=True), root):
         raise ValueError('unavailable source')
-    with p.open('rb') as f:
+    # Nonblocking avoids waiting on a FIFO substituted after the regular-file
+    # check. NOFOLLOW adds a POSIX leaf safeguard; identity checks also run on
+    # Windows, where these optional flags may not exist.
+    flags = os.O_RDONLY + getattr(os, 'O_BINARY', 0)
+    flags += getattr(os, 'O_NONBLOCK', 0) + getattr(os, 'O_NOFOLLOW', 0)
+    fd = os.open(p, flags)
+    with os.fdopen(fd, 'rb') as f:
+        opened = os.fstat(f.fileno())
+        if not stat.S_ISREG(opened.st_mode) or cross_fields(opened) != cross_fields(before):
+            raise ValueError('source changed before read')
         raw = f.read(MAX_BYTES + 1)
+        finished = os.fstat(f.fileno())
+    after = checked_stat(p)
+    final_parent_ids = [(s.st_dev, s.st_ino) for s in
+                        (checked_stat(parent, directory=True) for parent in parents)]
+    if (fields(opened) != fields(finished) or fields(before) != fields(after)
+            or parent_ids != final_parent_ids):
+        raise ValueError('source changed during read')
     if len(raw) > MAX_BYTES:
         raise ValueError('oversized source')
     return raw.decode('utf-8')

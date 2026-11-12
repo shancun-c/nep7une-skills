@@ -36,3 +36,13 @@ MarkItDown/Gitleaks experiments. The unit tests exercise only the generator and
 checker; they do not run, install, or certify either external tool. A matching
 synthetic output is not proof of tool execution, network isolation, or real-data
 readiness.
+
+## QMD source snapshot races
+
+`test_qmd_source_snapshot.py` exercises the public literal-search reader using
+synthetic file and parent-directory replacements, symlink substitutions, and
+changes during reading. A POSIX-only FIFO substitution check verifies that a
+replacement special file does not block opening; it is skipped on Windows.
+The reader compares path and descriptor identities before returning content and
+rejects symlinks/reparse points. These are bounded snapshot checks, not a lock or
+an isolation guarantee against a malicious concurrent filesystem writer.
