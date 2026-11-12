@@ -184,17 +184,30 @@ def snapshot(path):
             raise CanvasError("Canvas must be a regular file")
         if before.st_size > MAX_CANVAS_BYTES:
             raise CanvasError(f"Canvas input exceeds {MAX_CANVAS_BYTES} bytes")
+        if path_file_fingerprint(entry) != path_file_fingerprint(before):
+            raise CanvasError("Canvas changed before opening; retry with editors closed")
         raw = handle.read(MAX_CANVAS_BYTES + 1)
         if len(raw) > MAX_CANVAS_BYTES:
             raise CanvasError(f"Canvas input exceeds {MAX_CANVAS_BYTES} bytes")
         after = os.fstat(handle.fileno())
     if fingerprint(before) != fingerprint(after):
         raise CanvasError("Canvas changed while reading; retry with editors closed")
+    current = path.lstat()
+    if (not stat.S_ISREG(current.st_mode)
+            or path_file_fingerprint(current) != path_file_fingerprint(after)):
+        raise CanvasError("Canvas path changed while reading; retry with editors closed")
     return raw, after
 
 
 def fingerprint(st):
     return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+
+
+def path_file_fingerprint(st):
+    # Windows Python 3.12 lstat/fstat expose different ctime semantics.
+    # Compare dev/ino/size/mtime across path and descriptor snapshots there.
+    result = fingerprint(st)
+    return result[:4] if os.name == "nt" else result
 
 
 def assert_unchanged(path, original, original_stat):

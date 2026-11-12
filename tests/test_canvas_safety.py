@@ -11,6 +11,7 @@ from process_helper import run as run_test_process
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "skills/knowledge-canvas-sync/scripts"
@@ -148,6 +149,65 @@ class CanvasSafetyTests(unittest.TestCase):
             result = fixer.fix_and_verify(self.path)
         self.assertTrue(result["errors"])
         self.assertEqual(self.path.read_bytes(), changed)
+
+    def test_replacement_between_lstat_and_open_is_rejected(self):
+        replacement = self.path.with_name("replacement.canvas")
+        replacement.write_bytes(self.original)
+        original_open = Path.open
+        def swapped(path, *args, **kwargs):
+            if path == self.path:
+                os.replace(replacement, self.path)
+            return original_open(path, *args, **kwargs)
+        with patch.object(Path, "open", swapped):
+            with self.assertRaises(safety.CanvasError):
+                safety.snapshot(self.path)
+        self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_mutation_between_lstat_and_open_is_rejected(self):
+        original_open = Path.open
+        changed = self.original + b" "
+        def mutated(path, *args, **kwargs):
+            if path == self.path:
+                with original_open(path, "wb") as handle:
+                    handle.write(changed)
+            return original_open(path, *args, **kwargs)
+        with patch.object(Path, "open", mutated):
+            with self.assertRaises(safety.CanvasError):
+                safety.snapshot(self.path)
+        self.assertEqual(self.path.read_bytes(), changed)
+
+    def test_path_replacement_after_read_is_rejected(self):
+        replacement = self.path.with_name("replacement.canvas")
+        replacement.write_bytes(self.original)
+        original_lstat = Path.lstat
+        calls = 0
+        def replaced(path, *args, **kwargs):
+            nonlocal calls
+            if path == self.path:
+                calls += 1
+                if calls == 2:
+                    os.replace(replacement, self.path)
+            return original_lstat(path, *args, **kwargs)
+        with patch.object(Path, "lstat", replaced):
+            with self.assertRaises(safety.CanvasError):
+                safety.snapshot(self.path)
+        self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_path_file_fingerprint_handles_windows_ctime(self):
+        a = SimpleNamespace(st_dev=1, st_ino=2, st_size=3, st_mtime_ns=4, st_ctime_ns=5)
+        b = SimpleNamespace(st_dev=1, st_ino=2, st_size=3, st_mtime_ns=4, st_ctime_ns=6)
+        with patch.object(safety.os, "name", "nt"):
+            self.assertEqual(safety.path_file_fingerprint(a), safety.path_file_fingerprint(b))
+        with patch.object(safety.os, "name", "posix"):
+            self.assertNotEqual(safety.path_file_fingerprint(a), safety.path_file_fingerprint(b))
+        self.assertNotEqual(safety.fingerprint(a), safety.fingerprint(b))
+        for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns"):
+            changed = SimpleNamespace(**vars(a))
+            setattr(changed, field, getattr(changed, field) + 1)
+            for platform in ("nt", "posix"):
+                with patch.object(safety.os, "name", platform):
+                    self.assertNotEqual(safety.path_file_fingerprint(a),
+                                        safety.path_file_fingerprint(changed))
 
     def test_existing_lock_blocks_write(self):
         lock = self.path.with_name(self.path.name + ".repair.lock")

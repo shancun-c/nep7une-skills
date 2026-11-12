@@ -117,3 +117,8 @@ These are byte and nesting budgets, not a process-memory/RSS cap, full JSON
 Canvas schema audit, or protection against concurrent editors. Parsed objects,
 repair copies, and encoder chunks still use additional memory. Existing backup
 and concurrent-writer limitations still apply.
+
+Canvas snapshots compare the initial path metadata, opened file, and final path
+metadata. A replacement or modification detected across these checks aborts
+verification/repair. This is a best-effort race detector, not a filesystem CAS
+or a hostile-filesystem sandbox; editors and sync writers must still be stopped.
