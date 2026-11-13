@@ -46,3 +46,14 @@ replacement special file does not block opening; it is skipped on Windows.
 The reader compares path and descriptor identities before returning content and
 rejects symlinks/reparse points. These are bounded snapshot checks, not a lock or
 an isolation guarantee against a malicious concurrent filesystem writer.
+
+## Installer path-entry checks
+
+`test_install_reparse.py` verifies conservative rejection of Windows reparse
+attributes before directory descent. A native Windows junction fixture checks
+refusal through a parent path and confirms the synthetic destination stays empty.
+That native check skips on non-Windows; mocked attribute checks run everywhere.
+The installer refuses all reparse points, including legitimate cloud placeholders,
+rather than guessing their semantics. Use ordinary local directories. This does
+not exclude concurrent non-cooperating filesystem writers; stop runtimes and sync
+and use a trusted workspace. No real vault or machine settings are touched.

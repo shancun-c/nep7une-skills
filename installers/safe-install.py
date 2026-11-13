@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import sys
 import tempfile
 import uuid
@@ -24,26 +25,49 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def checked_lstat(path):
+    """Reject links and Windows reparse points without following the entry."""
+    value = path.lstat()
+    if (stat.S_ISLNK(value.st_mode)
+            or getattr(value, 'st_file_attributes', 0) & 0x400):
+        # FILE_ATTRIBUTE_REPARSE_POINT also covers junctions and mount points.
+        raise ValueError(f'Link or reparse paths are not supported: {path}')
+    return value
+
+
 def no_symlinks(path):
     for p in (path, *path.parents):
-        if p.is_symlink():
-            raise ValueError(f'Symlink paths are not supported: {p}')
+        try:
+            checked_lstat(p)
+        except FileNotFoundError:
+            # Fresh installation paths need not exist; inspect their parents.
+            pass
 
 
 def snapshot(root):
     result = {}
-    if not root.exists():
+    no_symlinks(root)
+    try:
+        root_stat = checked_lstat(root)
+    except FileNotFoundError:
         return result
-    for p in sorted(root.rglob('*')):
-        rel = p.relative_to(root).as_posix()
-        if p.is_symlink():
-            raise ValueError(f'Symlink in installation tree: {rel}')
-        if p.is_file():
-            result[rel] = [digest(p.read_bytes()), p.stat().st_mode & 0o777]
-        elif p.is_dir():
-            result[rel + '/'] = ['directory', p.stat().st_mode & 0o777]
-        else:
-            raise ValueError(f'Unsupported filesystem object: {rel}')
+    if not stat.S_ISDIR(root_stat.st_mode):
+        raise ValueError('Snapshot root must be a directory.')
+
+    def visit(directory):
+        for p in sorted(directory.iterdir()):
+            rel = p.relative_to(root).as_posix()
+            value = checked_lstat(p)
+            if stat.S_ISREG(value.st_mode):
+                result[rel] = [digest(p.read_bytes()), value.st_mode & 0o777]
+            elif stat.S_ISDIR(value.st_mode):
+                result[rel + '/'] = ['directory', value.st_mode & 0o777]
+                # Check each directory before descending, rather than eagerly
+                # expanding rglob and checking only after traversal.
+                visit(p)
+            else:
+                raise ValueError(f'Unsupported filesystem object: {rel}')
+    visit(root)
     return result
 
 
