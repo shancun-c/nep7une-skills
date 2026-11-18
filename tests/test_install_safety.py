@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 from process_helper import run as run_test_process
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -135,6 +136,43 @@ class InstallSafety(unittest.TestCase):
         (self.source / 'references/canvas-state.md').unlink()
         self.install()
         self.assertTrue((self.target / 'references/canvas-state.md').exists())
+
+    def test_state_directory_collision_refuses_noop_and_update(self):
+        self.install()
+        state = self.target / 'references/canvas-state.md'
+        state.unlink()
+        state.mkdir()
+        (state / 'user-note.txt').write_text('keep directory content')
+        for version in ('v1', 'v2'):
+            with self.subTest(version=version):
+                (self.source / 'SKILL.md').write_text(version)
+                before = mod.snapshot(self.target)
+                with self.assertRaisesRegex(ValueError, 'File/directory conflict'):
+                    self.install()
+                self.assertEqual(before, mod.snapshot(self.target))
+                self.assertFalse((self.root.parent / '.nep7une-skill-backups').exists())
+                self.assertFalse(self.target.with_name('.demo-skill.install-lock').exists())
+                self.assertFalse(list(self.target.parent.glob('.demo-skill.stage-*')))
+
+    def test_state_directory_conflict_cli_refuses_dry_run_and_install(self):
+        self.install()
+        state = self.target / 'references/canvas-state.md'
+        state.unlink()
+        state.mkdir()
+        (state / 'user-note.txt').write_text('keep directory content')
+        (self.source / 'SKILL.md').write_text('v2')
+        command = [sys.executable, str(REPO / 'installers/safe-install.py'),
+                   '--repo', str(self.repo), '--source', str(self.source),
+                   '--target', str(self.target), '--root', str(self.root),
+                   '--skill', 'demo-skill', '--collection', 'collection']
+        before = mod.snapshot(self.base)
+        for extra in (['--dry-run'], []):
+            with self.subTest(extra=extra):
+                result = run_test_process(command + extra, text=True)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn('Installation refused: File/directory conflict', result.stderr)
+                self.assertNotIn('Traceback', result.stderr)
+                self.assertEqual(before, mod.snapshot(self.base))
 
     def test_existing_unowned_target_refused(self):
         self.target.mkdir(parents=True)
