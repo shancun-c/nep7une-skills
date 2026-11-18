@@ -143,12 +143,12 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
         if rel.endswith('/') or rel == '.DS_Store':
             continue
         dest = target / rel
-        if rel in STATE and dest.exists():
-            print(f'PRESERVE state: {rel}')
-            continue
         if dest.exists():
             if not dest.is_file():
                 raise ValueError(f'File/directory conflict: {rel}')
+            if rel in STATE:
+                print(f'PRESERVE state: {rel}')
+                continue
             current = before[rel][0]
             if current != value[0] and (rel not in old or old[rel] != current):
                 raise ValueError(f'Locally modified or unmanaged file would be overwritten: {rel}')
