@@ -3,6 +3,7 @@
 No process enumeration, process-tree termination, permissions or Git settings.
 Direct children only. File-backed output avoids descendants holding PIPE open.
 """
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -16,8 +17,8 @@ MAX_OUTPUT = 4 * 1024 * 1024
 
 def run(args, *, capture_output=True, text=False, timeout=DEFAULT_TIMEOUT,
         cwd=None, env=None, encoding='utf-8', errors='replace', check=False):
-    if not capture_output or timeout <= 0:
-        raise ValueError('tests require captured output and a positive timeout')
+    if not capture_output or timeout <= 0 or not math.isfinite(timeout):
+        raise ValueError('tests require captured output and a finite positive timeout')
     label = repr([str(a) for a in args])[:350]
     print('[test child start] '+label, file=sys.stderr, flush=True)
     with tempfile.TemporaryDirectory(prefix='test-child-output-') as tmp:

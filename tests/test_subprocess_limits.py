@@ -11,6 +11,14 @@ import process_helper
 from process_helper import run
 
 class ProcessLimits(unittest.TestCase):
+    def test_nonfinite_timeout_is_rejected_before_start(self):
+        for timeout in (float('nan'), float('inf'), float('-inf')):
+            with self.subTest(timeout=timeout):
+                with patch.object(process_helper.subprocess, 'Popen') as popen:
+                    with self.assertRaises(ValueError):
+                        run([sys.executable, '-c', 'pass'], timeout=timeout)
+                    popen.assert_not_called()
+
     def test_timeout_terminates_direct_child_and_reports(self):
         with tempfile.TemporaryDirectory() as tmp:
             marker=Path(tmp)/'late'
