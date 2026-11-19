@@ -88,6 +88,42 @@ class DependencyContracts(unittest.TestCase):
                 self.assertTrue((root / 'nep7une-skills/knowledge-canvas-sync/SKILL.md').is_file())
 
     @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
+    def test_aliased_canvas_companion_accepts_crlf_frontmatter(self):
+        declared = self.declared()
+        for runtime in RUNTIMES:
+            with self.subTest(runtime=runtime), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp) / 'skills'
+                for dep in declared['knowledge-canvas-sync', runtime, 'required']:
+                    folder = root / 'scope' / ('alias-' + dep)
+                    folder.mkdir(parents=True)
+                    (folder / 'SKILL.md').write_bytes(
+                        ('---\r\nname: ' + dep + '\r\n---\r\n').encode('utf-8'))
+                r = run_test_process(['bash', str(ROOT / f'installers/install-{runtime}.sh'),
+                    '--skills-dir', str(root), '--skill', 'knowledge-canvas-sync', '--dry-run'],
+                    capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertIn('required ok: obsidian-canvas-creator', r.stdout)
+                self.assertFalse((root / 'nep7une-skills').exists())
+
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
+    def test_aliased_dependency_lookup_stays_inside_frontmatter(self):
+        for eol in (b'\n', b'\r\n'):
+            with self.subTest(eol=eol), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                alias = root / 'different-folder'
+                alias.mkdir()
+                cmd = ['bash', '-c', '. "$1"; skill_installed "$2" "$3"', '_',
+                       str(ROOT / 'installers/lib.sh'), str(root), 'obsidian-canvas-creator']
+                marker = alias / 'SKILL.md'
+                marker.write_bytes(eol.join([b'---', b'description: example', b'---',
+                                            b'name: obsidian-canvas-creator', b'']))
+                r = run_test_process(cmd, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 1, r.stderr)
+                marker.write_bytes(eol.join([b'---', b'name: obsidian-canvas-creator', b'---', b'']))
+                r = run_test_process(cmd, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stderr)
+
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_each_canvas_required_companion_is_enforced(self):
         declared = self.declared()
         for runtime in RUNTIMES:

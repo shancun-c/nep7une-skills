@@ -78,6 +78,7 @@ skill_installed() {
     fi
 
     metadata_name="$(awk '
+      { sub(/\r$/, "") } # Normalize CRLF before checking frontmatter delimiters.
       NR == 1 && $0 == "---" { in_frontmatter = 1; next }
       in_frontmatter && $0 == "---" { exit }
       in_frontmatter && $1 == "name:" {
