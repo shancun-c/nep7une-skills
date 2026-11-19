@@ -1,3 +1,5 @@
+import contextlib
+import io
 import importlib.util
 import json
 import os
@@ -57,6 +59,26 @@ class InstallSafety(unittest.TestCase):
         before = mod.snapshot(self.target)
         self.install()
         self.assertEqual(before, mod.snapshot(self.target))
+
+    def test_malformed_ownership_marker_has_clean_refusal_and_leaves_tree_unchanged(self):
+        self.install()
+        marker = self.target / mod.MARKER
+        valid = json.loads(marker.read_text(encoding='utf-8'))
+        (self.source / 'SKILL.md').write_text('v2')
+        for value in (None, [], True, "not an object", dict(valid, schema=True),
+                      dict(valid, schema=1.0)):
+            with self.subTest(value=value):
+                marker.write_text(json.dumps(value), encoding='utf-8')
+                before = mod.snapshot(self.base)
+                stderr = io.StringIO()
+                with contextlib.redirect_stderr(stderr), patch.object(sys, 'argv', [
+                    'safe-install.py', '--repo', str(self.repo), '--source', str(self.source),
+                    '--target', str(self.target), '--root', str(self.root),
+                    '--skill', 'demo-skill', '--collection', 'collection',
+                ]):
+                    self.assertEqual(mod.main(), 1)
+                self.assertIn('Installation refused: Invalid ownership marker.', stderr.getvalue())
+                self.assertEqual(before, mod.snapshot(self.base))
 
     def test_unchanged_reinstall_does_not_swap_or_create_backup(self):
         self.install()

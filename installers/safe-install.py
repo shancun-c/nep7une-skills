@@ -132,6 +132,8 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
         if not marker.is_file():
             raise ValueError('Nonempty target is not managed. Choose a new directory; migrate user files manually.')
         meta = json.loads(marker.read_text(encoding='utf-8'))
+        if not isinstance(meta, dict) or type(meta.get('schema')) is not int:
+            raise ValueError('Invalid ownership marker.')
         if (meta.get('schema'), meta.get('skill'), meta.get('collection')) != (1, skill, collection):
             raise ValueError('Ownership marker does not match this skill/collection.')
         old = meta.get('files')
