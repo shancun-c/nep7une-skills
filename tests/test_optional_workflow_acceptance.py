@@ -47,6 +47,41 @@ class OptionalWorkflowAcceptanceTests(unittest.TestCase):
     def test_markdown_preserves_text_and_table(self):
         self.assert_pass(ACCEPTANCE.check_markdown(markdown()))
 
+    def test_verbatim_markdown_dumps_do_not_count_as_conversion(self):
+        for content in (
+            b"```markdown\n" + markdown() + b"```\n",
+            b"~~~md\n" + markdown() + b"~~~\n",
+            b"   ````markdown\n```\n" + markdown() + b"   ````\n",
+            b"```markdown\n" + markdown(),
+            b"~~~markdown\n```\n" + markdown() + b"~~~\n",
+            b"~~~markdown\n~~~ not a closer\n" + markdown() + b"~~~\n",
+        ):
+            with self.subTest(content=content[:32]):
+                self.assert_unverified(ACCEPTANCE.check_markdown(content))
+
+    def test_fenced_table_cannot_satisfy_prose_only_output(self):
+        prose, table = markdown().split(b"| Year", 1)
+        content = prose + b"~~~markdown\n| Year" + table + b"~~~\n"
+        self.assertEqual(ACCEPTANCE.check_markdown(content)["reason"],
+                         "table_requires_review")
+
+    def test_fenced_source_text_cannot_satisfy_table_only_output(self):
+        prose, table = markdown().split(b"| Year", 1)
+        content = b"```markdown\n" + prose + b"```\n\n| Year" + table
+        self.assertEqual(ACCEPTANCE.check_markdown(content)["reason"],
+                         "missing_source_text")
+
+    def test_unrelated_code_blocks_do_not_invalidate_visible_conversion(self):
+        content = (b"~~~text\n" + markdown() + b"~~~\n\n" + markdown()
+                   + b"\n\n```text\nexample\n```\n")
+        self.assert_pass(ACCEPTANCE.check_markdown(content))
+
+    def test_indented_prose_in_visible_list_is_not_blanket_discarded(self):
+        prose, table = markdown().split(b"| Year", 1)
+        visible_prose = b"1. Summary\n" + b"\n".join(
+            b"    " + line if line else line for line in prose.split(b"\n"))
+        self.assert_pass(ACCEPTANCE.check_markdown(visible_prose + b"| Year" + table))
+
     def test_missing_unicode_source_text(self):
         self.assert_unverified(ACCEPTANCE.check_markdown(markdown().replace(
             ACCEPTANCE.REQUIRED_TEXT[1].encode("utf-8"), b"")))

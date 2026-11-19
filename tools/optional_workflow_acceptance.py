@@ -43,16 +43,39 @@ def _decode(payload):
     return value
 
 
+_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+
+
+def _visible_fixture_lines(text):
+    """Ignore unprefixed fenced blocks, not all Markdown container syntax."""
+    fence = None
+    for line in text.splitlines():
+        match = _FENCE.fullmatch(line)
+        if fence is not None:
+            if match:
+                run, tail = match.groups()
+                if run[0] == fence[0] and len(run) >= len(fence) and not tail.strip(" \t"):
+                    fence = None
+            yield ""
+        elif match and (match[1][0] == "~" or "`" not in match[2]):
+            fence = match[1]
+            yield ""
+        else:
+            yield line
+
+
 def check_markdown(payload):
     """Check text preservation and one specific table, not general fidelity."""
     try:
         text = _decode(payload)
     except (UnicodeError, ValueError):
         return _result(False, "invalid_payload")
-    if any(required not in text for required in REQUIRED_TEXT):
+    lines = list(_visible_fixture_lines(text))
+    visible = "\n".join(lines)
+    if any(required not in visible for required in REQUIRED_TEXT):
         return _result(False, "missing_source_text")
     rows = []
-    for line in text.splitlines():
+    for line in lines:
         line = line.strip()
         if not line.startswith("|") or not line.endswith("|"):
             rows.append(None)
