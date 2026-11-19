@@ -2,6 +2,7 @@
 from __future__ import annotations
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -21,6 +22,11 @@ def _bounded_run(argv, *, env=None, cwd=None, timeout=10, max_bytes=MAX_BYTES):
 
     No shell. Trusted executable only; this is not a hostile process sandbox.
     """
+    if (type(timeout) not in (int, float) or timeout <= 0
+            or timeout > threading.TIMEOUT_MAX or not math.isfinite(timeout)):
+        raise ValueError('invalid timeout budget')
+    if type(max_bytes) is not int or max_bytes < 0:
+        raise ValueError('invalid output byte budget')
     env = dict(os.environ if env is None else env)
     for key in ['NODE_OPTIONS', 'NODE_PATH']:
         env.pop(key, None)
