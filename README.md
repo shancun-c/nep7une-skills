@@ -65,6 +65,9 @@ tests are not proof of support for those environments.
 
 ## Validate a checkout
 
+Use the [platform evidence and release checklist](docs/support-and-acceptance.md)
+to separate local tests, skipped platforms, hosted CI, and runtime discovery.
+
 From the repository root, run the offline tests and Bash syntax checks:
 
 ```bash
