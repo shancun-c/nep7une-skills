@@ -60,22 +60,21 @@ python3 -m unittest discover -s tests -v
 for script in installers/*.sh; do bash -n "$script" || exit; done
 ```
 
-Exercise all nine explicit runtime/skill plans without touching a runtime's real
-skills root. `--skip-deps` is deliberate here: this verifies packaging only, not
-required companion installation. No install is performed by these commands.
+Run just the public installer preview matrix with:
 
-```bash
-preview_root="$(mktemp -d)" || exit
-for runtime in codex hermes openclaw; do
-  for skill in knowledge-canvas-sync obsidian-wiki-skill server-ops-skill; do
-    bash "installers/install-$runtime.sh" \
-      --skills-dir "$preview_root/$runtime" --skill "$skill" \
-      --skip-deps --dry-run || exit
-  done
-done
-# Successful previews must leave the temporary parent empty.
-rmdir "$preview_root"
+```sh
+python3 -m unittest discover -s tests -p test_installer_previews.py -v
 ```
+
+The full offline suite already includes this matrix. It checks each of the
+three skills through all three Bash entrypoints, using both documented target
+modes (18 isolated cases). Each preview checks the exact reported destination
+and leaves its own temporary parent empty. For Codex and Hermes, the
+`--target` case uses an explicit full skill directory; for OpenClaw, it uses a
+workspace. `--skip-deps` is deliberate: this is not a dependency check or an
+installation. Both tests skip without Bash and on native Windows, where Bash
+path interoperability is not assessed. The native Python smoke suite is
+separate; do not record skipped previews as passed.
 
 If a command fails, stop and retain its diagnostics. Do not bypass a dependency,
 ownership, symlink/reparse, local-edit, or state-file/directory refusal to make
@@ -85,7 +84,8 @@ this checklist green. Review unexpected output before cleaning it up.
 
 - [ ] Pin the base commit and reviewed candidate diff; exclude unrelated drafts.
 - [ ] Record exact OS/Python/Bash/Git versions and full results, including skips.
-- [ ] Check all nine previews above and the native Python smoke suite.
+- [ ] Check both public preview matrix tests above and the native Python smoke
+  suite.
 - [ ] Check required-companion refusal tests; separately verify any real
       companion/runtime integration being claimed, with explicit authorization.
 - [ ] Validate the actual archive bytes if distributing an archive. Checkout
