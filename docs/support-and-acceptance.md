@@ -76,6 +76,18 @@ installation. Both tests skip without Bash and on native Windows, where Bash
 path interoperability is not assessed. The native Python smoke suite is
 separate; do not record skipped previews as passed.
 
+For an actual install and no-change reinstall through each public Bash wrapper:
+
+```sh
+python3 -m unittest discover -s tests -p test_public_installer_smoke.py -v
+```
+
+This smoke test installs one representative skill into an explicit temporary
+location for each wrapper. It checks the ownership marker, representative
+package files, and an untouched sibling before cleanup. It skips dependency
+checks and does not exercise runtime discovery, real vaults, or native Windows
+Bash interoperability.
+
 If a command fails, stop and retain its diagnostics. Do not bypass a dependency,
 ownership, symlink/reparse, local-edit, or state-file/directory refusal to make
 this checklist green. Review unexpected output before cleaning it up.
