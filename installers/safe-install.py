@@ -44,7 +44,8 @@ def no_symlinks(path):
             pass
 
 
-def snapshot(root):
+def snapshot(root, *, source_package=False):
+    """Hash planned files; inspect but do not package generated source caches."""
     result = {}
     no_symlinks(root)
     try:
@@ -54,17 +55,20 @@ def snapshot(root):
     if not stat.S_ISDIR(root_stat.st_mode):
         raise ValueError('Snapshot root must be a directory.')
 
-    def visit(directory):
+    def visit(directory, included=True):
         for p in sorted(directory.iterdir()):
             rel = p.relative_to(root).as_posix()
             value = checked_lstat(p)
             if stat.S_ISREG(value.st_mode):
-                result[rel] = [digest(p.read_bytes()), value.st_mode & 0o777]
+                if included:
+                    result[rel] = [digest(p.read_bytes()), value.st_mode & 0o777]
             elif stat.S_ISDIR(value.st_mode):
-                result[rel + '/'] = ['directory', value.st_mode & 0o777]
-                # Check each directory before descending, rather than eagerly
-                # expanding rglob and checking only after traversal.
-                visit(p)
+                include_subtree = included and not (source_package and p.name == '__pycache__')
+                if include_subtree:
+                    result[rel + '/'] = ['directory', value.st_mode & 0o777]
+                # Keep checking filesystem entries, even in excluded caches.
+                # Never expand a directory before checking its type.
+                visit(p, include_subtree)
             else:
                 raise ValueError(f'Unsupported filesystem object: {rel}')
     visit(root)
@@ -123,7 +127,7 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
     root = Path(os.path.abspath(root))
     validate(repo, source, target, root, skill, collection)
     before = snapshot(target)
-    package = snapshot(source)
+    package = snapshot(source, source_package=True)
     if MARKER in package:
         raise ValueError('Source contains reserved ownership marker.')
     old = {}
@@ -173,7 +177,7 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
     lock.mkdir()  # Exclusive; stale locks require manual inspection, never auto-delete.
     try:
         validate(repo, source, target, root, skill, collection)
-        if snapshot(target) != before or snapshot(source) != package:
+        if snapshot(target) != before or snapshot(source, source_package=True) != package:
             raise ValueError('Source or target changed during planning; no installation performed.')
         # Reinstalling the same package must not rename the active installation
         # or accumulate full backups. Preserve mutable state and permission-only
@@ -195,7 +199,7 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
             'collection': collection, 'files': files}, indent=2) + '\n').encode('utf-8')
         (stage / MARKER).write_bytes(marker_bytes)
         verify_stage(stage, before, package, writes, marker_bytes)
-        if snapshot(target) != before or snapshot(source) != package:
+        if snapshot(target) != before or snapshot(source, source_package=True) != package:
             raise ValueError('Source or target changed during staging; original retained.')
         no_symlinks(target)
         if target.exists():
