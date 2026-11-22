@@ -60,6 +60,41 @@ class InstallSafety(unittest.TestCase):
         self.install()
         self.assertEqual(before, mod.snapshot(self.target))
 
+    def test_generated_source_cache_is_not_installed_or_claimed(self):
+        cache = self.source / 'scripts/__pycache__'
+        cache.mkdir(parents=True)
+        (cache / 'helper.cpython-312.pyc').write_bytes(b'synthetic generated cache')
+        (cache.parent / 'helper.py').write_text('pass')
+        self.install()
+        self.assertTrue((self.target / 'scripts/helper.py').is_file())
+        self.assertFalse((self.target / 'scripts/__pycache__').exists())
+        marker = json.loads((self.target / mod.MARKER).read_text(encoding='utf-8'))
+        self.assertEqual(set(marker['files']), {
+            'SKILL.md', 'references/canvas-state.md', 'scripts/helper.py',
+        })
+
+    def test_source_cache_does_not_overwrite_or_prune_installed_cache(self):
+        relative = 'scripts/__pycache__/helper.cpython-312.pyc'
+        cache = self.source / relative
+        cache.parent.mkdir(parents=True)
+        self.install()
+        installed = self.target / relative
+        installed.parent.mkdir(parents=True)
+        installed.write_bytes(b'previously installed bytes')
+        marker_path = self.target / mod.MARKER
+        marker = json.loads(marker_path.read_text(encoding='utf-8'))
+        marker['files'][relative] = mod.digest(installed.read_bytes())
+        marker_path.write_text(json.dumps(marker), encoding='utf-8')
+        cache.write_bytes(b'newly generated source bytes')
+        with patch.object(mod.os, 'rename', side_effect=AssertionError('unexpected swap')):
+            self.install()
+        (self.source / 'SKILL.md').write_text('v2')
+        self.install()
+        self.assertEqual((self.target / 'SKILL.md').read_text(), 'v2')
+        self.assertEqual(installed.read_bytes(), b'previously installed bytes')
+        after = json.loads(marker_path.read_text(encoding='utf-8'))
+        self.assertEqual(after['files'][relative], marker['files'][relative])
+
     def test_malformed_ownership_marker_has_clean_refusal_and_leaves_tree_unchanged(self):
         self.install()
         marker = self.target / mod.MARKER
@@ -246,6 +281,20 @@ class InstallSafety(unittest.TestCase):
         (self.root / 'collection').unlink()
         self.make_symlink(self.source / 'linked', outside, directory=True)
         with self.assertRaises(ValueError): self.install()
+
+    def test_generated_source_cache_does_not_relax_link_refusal(self):
+        cache = self.source / '__pycache__'
+        outside = self.base / 'local'
+        outside.mkdir()
+        self.make_symlink(cache, outside, directory=True)
+        with self.assertRaisesRegex(ValueError, 'Link or reparse'):
+            self.install()
+        cache.unlink()
+        cache.mkdir()
+        self.make_symlink(cache / 'linked', outside, directory=True)
+        with self.assertRaisesRegex(ValueError, 'Link or reparse'):
+            self.install()
+        self.assertFalse(self.root.exists())
 
     def test_target_file_symlink_refused(self):
         self.install()

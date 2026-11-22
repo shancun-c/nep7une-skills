@@ -24,6 +24,9 @@ backups are not a substitute for a vault backup.
 - Locally modified managed files cause refusal rather than silent overwrite.
   Permission-only edits are preserved. Unrelated files and legacy
   `references/canvas-state.md` are retained.
+- Generated Python `__pycache__` directories in the source are not copied or
+  added to the ownership manifest. Existing installed cache files, like other
+  obsolete or unrelated files, are retained.
 - Obsolete package files are retained, not pruned. Use a new dedicated directory
   if an upgrade requires removal of obsolete files.
 - Symlink paths/trees are refused. Use an explicitly selected real directory;
