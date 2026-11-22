@@ -242,14 +242,29 @@ class CanvasSafetyTests(unittest.TestCase):
         self.assertTrue(result["saved"])
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o640)
 
-    def test_no_personal_path_fallback(self):
+    def test_vault_working_directory_does_not_replace_explicit_selection(self):
+        vault = Path(self.tmp.name)
+        canvas = vault / "99 System" / "Knowledge Canvas.canvas"
+        canvas.parent.mkdir()
+        original = b'{"nodes":[],"edges":[]}\n'
+        canvas.write_bytes(original)
         env = os.environ.copy()
         env.pop("OBSIDIAN_VAULT_PATH", None)
         for script in ("fix-canvas-colors.py", "verify-canvas-colors.py"):
-            result = run_test_process([sys.executable, str(SCRIPTS / script)], env=env, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 1)
-            self.assertIn("Pass a canvas path", result.stderr)
-            self.assertNotIn("Traceback", result.stderr)
+            with self.subTest(script=script):
+                args = [sys.executable, str(SCRIPTS / script)]
+                options = dict(cwd=vault, capture_output=True, text=True)
+                result = run_test_process(args, env=env, **options)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("Pass a canvas path", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                for invocation, selected_env in (
+                    (args + [str(canvas)], env),
+                    (args, dict(env, OBSIDIAN_VAULT_PATH=str(vault))),
+                ):
+                    result = run_test_process(invocation, env=selected_env, **options)
+                    self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+                self.assertEqual(canvas.read_bytes(), original)
 
 
 if __name__ == "__main__":

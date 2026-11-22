@@ -58,7 +58,14 @@ The canvas is the **central visual interface** for the user's knowledge. Every k
 
 ### 1. Orient
 
-Load the current state:
+Confirm the user's explicitly selected vault root and private per-vault state
+location before reading or writing. Use the exact absolute vault path; do not
+infer it from the working directory, installed skill, cloud provider, or another
+vault. Stop if the selected vault is missing or ambiguous. The Wiki vault-config
+reference describes how to record local configuration; it supplies no active
+vault path.
+
+Load the current state relative to the confirmed vault root:
 
 - Read `99 System/Knowledge Canvas.canvas` — the existing knowledge graph
 - Read `30 Knowledge/Knowledge Index.md` — the knowledge index
@@ -222,11 +229,7 @@ tags: []
 
 - **canvas-state.md may drift from actual canvas content.** The `canvas-state.md` file records node IDs and their descriptions from the last sync, but the actual canvas JSON can be modified by other tools or workflows between sync runs. This causes node ID-description mismatches — e.g., `canvas-state.md` says node X has text A but the actual canvas has text B (or vice versa). Always **verify stale-yellow node IDs against the actual canvas content** before reverting. Do NOT blindly trust canvas-state.md's node descriptions. The `fix-canvas-colors.py` script relies on node colors (not descriptions), so it correctly handles mismatches — but the human-readable report should be written based on the actual canvas content, not canvas-state.md's stale records.
 
-- **Vault path not obvious.** The Obsidian vault is at a Google Drive path configured in `obsidian-wiki-skill/references/vault-config.md`. Always consult that reference first — the vault is NOT at `~/Documents/Obsidian Vault` or `~/Obsidian`.
-
 - **canvas-state.md patch leaves stale trailing content.** When using `patch` to update the private per-vault state file, old stats lines can survive the patch if the old_string doesn't extend far enough. The result is a file that has both the new stats AND the previous run's stats at the bottom. Always read back the file after patching and remove any leftover stale lines. The `## Today's New Nodes` section is the natural boundary — nothing should appear after the last new-node-ID bullet.
-
-- **Cron execution: memory is UNAVAILABLE.** Cron-spawned agents run with `skip_memory=True`, so they cannot read the vault path from memory or user profile. The cron job's prompt MUST include the absolute vault path explicitly (e.g. "The Obsidian vault is at /Users/.../the_ai_obsidian"). Alternatively, set `workdir` on the cron job to the vault path — this also injects `AGENTS.md` context. Without this, the cron agent will search for files in `~/.hermes/hermes-agent/` (the scheduler's cwd) and fail with "File not found" errors.
 
 - **🚨 Cron job skills list MUST match Execution Companions.** The cron job's `skills` array is what the agent actually loads — not what this SKILL.md says. If the cron job lists `json-canvas` instead of `obsidian-canvas-creator`, the cron agent WILL use the wrong skill and corrupt the canvas (wrong node sizes 320×100, no layout intelligence, patch-tool escape-drift). This is the #1 cause of canvas corruption in cron runs. Verify: `hermes cron list` or read `~/.hermes/cron/jobs.json` and check the `skills` field. The correct skills list is: `knowledge-canvas-sync, obsidian-canvas-creator, obsidian-markdown, obsidian-wiki-skill`.
 
@@ -234,13 +237,20 @@ tags: []
 
 ## Cron Integration
 
-This skill is designed to run daily via a cron job. The cron prompt MUST include the absolute vault path because cron agents run with `skip_memory=True` and cannot read it from memory.
+Scheduling is optional and requires explicit user approval. Configure each job
+for one verified vault and its own private state location; test it with a
+disposable vault before scheduling writes to a real vault. Put the verified
+absolute vault path and state location in the private job configuration rather
+than relying on chat memory. Stop if either value is missing or ambiguous.
 
 ### Recommended cron job configuration
 
 ```
-# Prompt — include the vault path explicitly; cron agents have no memory
-Vault 路径：/Users/<user>/Library/CloudStorage/GoogleDrive-<email>/其他计算机/我的计算机/the_ai_obsidian
+# Prompt — replace both placeholders with verified private absolute paths
+Vault 路径：<absolute-vault-path>
+Canvas 私有状态文件：<absolute-per-vault-state-path>
+
+这两个路径必须明确指定；缺失或有歧义时停止。调用 Canvas 脚本时，传入 Canvas 的绝对路径，或将 OBSIDIAN_VAULT_PATH 设置为上面已确认的 Vault 路径。
 
 Load knowledge-canvas-sync skill, then run the full workflow with these modifications:
 
@@ -274,13 +284,12 @@ file, terminal, skills  (minimal set — the skill loads obsidian-canvas-creator
 knowledge-canvas-sync, obsidian-canvas-creator, obsidian-markdown, obsidian-wiki-skill
 ```
 
-### Alternative: use workdir
+### Working directory
 
-Instead of hardcoding the vault path in the prompt, set `workdir` to the vault path. This also injects the vault's `AGENTS.md` if present:
-
-```
-hermes cron edit 98246e49fcaa --workdir "/Users/<user>/Google Drive/其他计算机/我的计算机/the_ai_obsidian"
-```
+A scheduler's working directory can make relative paths easier to use. It does
+not select a vault for the packaged color helpers. Pass the absolute Canvas path
+to the helper or set `OBSIDIAN_VAULT_PATH` to the confirmed absolute vault root
+in the helper's environment, even when the working directory is that vault.
 
 ### Full-scan variant
 
