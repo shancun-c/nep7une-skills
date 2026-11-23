@@ -77,15 +77,30 @@ skill_installed() {
       return 0
     fi
 
-    metadata_name="$(awk '
+    # Read only a simple top-level name scalar from closed frontmatter.
+    metadata_name="$(awk -v sq="'" '
+      BEGIN { dq = sprintf("%c", 34) }
       { sub(/\r$/, "") } # Normalize CRLF before checking frontmatter delimiters.
-      NR == 1 && $0 == "---" { in_frontmatter = 1; next }
-      in_frontmatter && $0 == "---" { exit }
-      in_frontmatter && $1 == "name:" {
-        sub(/^name:[[:space:]]*/, "")
-        print
-        exit
+      NR == 1 { in_frontmatter = ($0 == "---"); next }
+      !in_frontmatter { exit }
+      $0 == "---" { closed = 1; exit }
+      /^[[:space:]]*($|#)/ { next }
+      { if (after_name && $0 ~ /^[[:space:]]/) candidate = ""; after_name = 0 }
+      $0 ~ "^(" dq "name" dq "|" sq "name" sq ")[[:space:]]*:" { names++; next }
+      /^name[[:space:]]*:/ {
+        names++
+        after_name = 1
+        if ($0 !~ /^name[[:space:]]*:[[:space:]]+/) next
+        sub(/^name[[:space:]]*:[[:space:]]*/, "")
+        sub(/[[:space:]]*$/, "")
+        quote = substr($0, 1, 1)
+        if (length($0) >= 2 && (quote == sq || quote == dq) &&
+            substr($0, length($0), 1) == quote) {
+          $0 = substr($0, 2, length($0) - 2)
+        }
+        if ($0 ~ /^[a-z0-9]+(-[a-z0-9]+)*$/) candidate = $0
       }
+      END { if (closed && names == 1 && candidate != "") print candidate }
     ' "$skill_file")"
 
     if [[ "$metadata_name" == "$dependency_name" ]]; then
