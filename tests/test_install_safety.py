@@ -187,6 +187,24 @@ class InstallSafety(unittest.TestCase):
         discovered = list(self.root.rglob('SKILL.md'))
         self.assertEqual(discovered, [self.target / 'SKILL.md'])
 
+    def test_preview_and_update_reject_backup_directory_obstruction(self):
+        self.install()
+        backup_root = self.root.parent / '.nep7une-skill-backups'
+        backup_root.write_bytes(b'unrelated maintenance note')
+        before = mod.snapshot(self.base)
+        # An unchanged reinstall has no backup or replacement to plan.
+        self.install(dry_run=True)
+        self.install()
+        self.assertEqual(mod.snapshot(self.base), before)
+
+        (self.source / 'SKILL.md').write_text('v2')
+        before = mod.snapshot(self.base)
+        for dry_run in (True, False):
+            with self.subTest(dry_run=dry_run):
+                with self.assertRaisesRegex(ValueError, 'Backup location is not a directory'):
+                    self.install(dry_run=dry_run)
+                self.assertEqual(mod.snapshot(self.base), before)
+
     def test_no_prune(self):
         self.install()
         (self.source / 'SKILL.md').write_text('v2')

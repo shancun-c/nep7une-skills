@@ -12,6 +12,9 @@ backups are not a substitute for a vault backup.
    new source before executing it. Do not blindly replace it with a moving ref.
 3. Run the same installer with the same explicit skill and target plus
    `--dry-run`. Inspect the reported target. Dry run writes no target files/locks.
+   When an existing target needs replacement, dry run rejects a known backup
+   path obstruction (such as a file in place of the backup directory). It does
+   not test write permissions or whether a directory rename will succeed.
 4. Remove `--dry-run` only after the preview succeeds and the target is correct.
 5. Confirm installed files, local configuration/state, and runtime discovery.
    Validate in a test vault before using personal data.

@@ -120,6 +120,16 @@ def validate(repo, source, target, root, skill, collection):
         raise ValueError('Target is not a directory.')
 
 
+def check_backup_root(root, target):
+    backup_root = root.parent / '.nep7une-skill-backups'
+    no_symlinks(backup_root)
+    if backup_root == root or root in backup_root.parents or target in backup_root.parents:
+        raise ValueError('Backup location must be outside the skills root and target.')
+    if backup_root.exists() and not backup_root.is_dir():
+        raise ValueError(f'Backup location is not a directory: {backup_root}')
+    return backup_root
+
+
 def install(repo, source, target, root, skill, collection, dry_run=False):
     repo = Path(repo).resolve()
     source = Path(os.path.abspath(source))
@@ -167,6 +177,12 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
         files[rel] = value[0]
         print(f'{"KEEP" if before.get(rel) == value else "COPY"}: {rel}')
     print('Deletion policy: none. Unrelated and obsolete files are retained.')
+    up_to_date = bool(before) and files == old and all(
+        before.get(rel, [None])[0] == package[rel][0] for rel in writes)
+    if target.exists() and not up_to_date:
+        # An obstructed backup path makes this replacement impossible even
+        # before any staging. Validate the same path during preview and install.
+        check_backup_root(root, target)
     if dry_run:
         print('Dry run: no files, locks or directories written.')
         return
@@ -182,8 +198,7 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
         # Reinstalling the same package must not rename the active installation
         # or accumulate full backups. Preserve mutable state and permission-only
         # edits exactly as an ordinary update would. Recheck under our lock first.
-        if before and files == old and all(
-                before.get(rel, [None])[0] == package[rel][0] for rel in writes):
+        if up_to_date:
             print(f'Already up to date: {target}')
             return
         stage = Path(tempfile.mkdtemp(prefix='.' + skill + '.stage-', dir=target.parent))
@@ -203,10 +218,7 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
             raise ValueError('Source or target changed during staging; original retained.')
         no_symlinks(target)
         if target.exists():
-            backup_root = root.parent / '.nep7une-skill-backups'
-            no_symlinks(backup_root)
-            if backup_root == root or root in backup_root.parents or target in backup_root.parents:
-                raise ValueError('Backup location must be outside the skills root and target.')
+            backup_root = check_backup_root(root, target)
             backup_root.mkdir(parents=True, exist_ok=True)
             backup = backup_root / (skill + '-' + uuid.uuid4().hex)
             os.rename(target, backup)
