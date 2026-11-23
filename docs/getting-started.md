@@ -36,7 +36,10 @@ Clone downloads the source; it does not install skills. Review the source and
 The [registry](../registry.yaml) also lists recommended and optional companions.
 `json-canvas` is used by Wiki but is **not** a replacement for Canvas Creator in
 Knowledge Canvas. Dependency checks identify companion `SKILL.md` files under
-the selected skills root; they do not exercise the companion or inspect its
+the selected skills root. Use the canonical companion folder name. For an
+existing differently named folder, the installer's fallback accepts one simple
+top-level `name: slug` in closed frontmatter, with or without single or double
+quotes. This lookup does not verify host discovery, companion behavior, or
 version. The Server Ops workflows need working local SSH and a private SSH
 configuration, but the current shell dependency checker does not validate those
 tools, credentials, aliases, or connectivity. No server operation is performed

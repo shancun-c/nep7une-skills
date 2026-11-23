@@ -124,6 +124,51 @@ class DependencyContracts(unittest.TestCase):
                 self.assertEqual(r.returncode, 0, r.stderr)
 
     @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
+    def test_aliased_companions_accept_simple_quoted_names(self):
+        declared = self.declared()
+        for runtime in RUNTIMES:
+            with self.subTest(runtime=runtime), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp) / 'skills'
+                for index, dep in enumerate(declared['knowledge-canvas-sync', runtime, 'required']):
+                    folder = root / 'scope' / ('alias-' + dep)
+                    folder.mkdir(parents=True)
+                    quote = '"' if index == 0 else "'"
+                    (folder / 'SKILL.md').write_bytes(
+                        ('---\r\nname: ' + quote + dep + quote +
+                         '\r\ndescription: Synthetic companion\r\n---\r\n').encode('utf-8'))
+                r = run_test_process(['bash', str(ROOT / f'installers/install-{runtime}.sh'),
+                    '--skills-dir', str(root), '--skill', 'knowledge-canvas-sync', '--dry-run'],
+                    capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertIn('required ok: obsidian-canvas-creator', r.stdout)
+                self.assertFalse((root / 'nep7une-skills').exists())
+
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
+    def test_aliased_companion_rejects_unsupported_name_metadata(self):
+        required = 'obsidian-canvas-creator'
+        cases = (
+            f'---\nname: {required}\nname: another-companion\n---\n',
+            f'---\nname: "{required}"\n"name": another-companion\n---\n',
+            f'---\nname: {required}\n',
+            f'---\nmetadata:\n  name: "{required}"\n---\n',
+            f'---\nname: "{required}\n---\n',
+            f'---\nname: ["{required}"]\n---\n',
+            f'---\nname:{required}\n---\n',
+            f'---\nname: {required}\n  continued-value\n---\n',
+            f"---\nname: '{required}-extra'\n---\n",
+        )
+        for value in cases:
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                alias = root / 'different-folder'
+                alias.mkdir()
+                (alias / 'SKILL.md').write_text(value, encoding='utf-8')
+                result = run_test_process(['bash', '-c', '. "$1"; skill_installed "$2" "$3"',
+                    '_', str(ROOT / 'installers/lib.sh'), str(root), required],
+                    capture_output=True, text=True)
+                self.assertEqual(result.returncode, 1, result.stderr)
+
+    @unittest.skipUnless(shutil.which('bash'), 'Bash executable is required for shell integration')
     def test_each_canvas_required_companion_is_enforced(self):
         declared = self.declared()
         for runtime in RUNTIMES:
