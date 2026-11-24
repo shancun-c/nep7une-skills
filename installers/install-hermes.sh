@@ -31,19 +31,23 @@ USAGE
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skill)
-      SKILL_NAME="${2:?Missing value for --skill}"
+      require_installer_value "$1" "${2-}"
+      SKILL_NAME="$2"
       shift 2
       ;;
     --collection)
-      COLLECTION_NAME="${2:?Missing value for --collection}"
+      require_installer_value "$1" "${2-}"
+      COLLECTION_NAME="$2"
       shift 2
       ;;
     --skills-dir)
-      TARGET_ROOT="${2:?Missing value for --skills-dir}"
+      require_installer_value "$1" "${2-}"
+      TARGET_ROOT="$2"
       shift 2
       ;;
     --target)
-      TARGET_PATH="${2:?Missing value for --target}"
+      require_installer_value "$1" "${2-}"
+      TARGET_PATH="$2"
       shift 2
       ;;
     --check-deps)
