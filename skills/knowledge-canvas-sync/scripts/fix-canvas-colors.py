@@ -19,6 +19,22 @@ def fix_and_verify(canvas_path, dry_run=False):
         result["errors"] = validate(canvas, colors=False)
         if result["errors"]:
             return result
+        stale_ids = {s.strip() for s in os.environ.get("STALE_YELLOW_IDS", "").split(",") if s.strip()}
+        if stale_ids:
+            nodes_by_id = {node["id"]: node for node in canvas["nodes"]}
+            for ident in sorted(stale_ids):
+                node = nodes_by_id.get(ident)
+                if node is None:
+                    reason = "unknown node"
+                elif node["type"] != "text":
+                    reason = "not a text node"
+                elif node.get("color") not in ("3", "5"):
+                    reason = "not color 3 or 5"
+                else:
+                    continue
+                result["errors"].append(f"STALE_YELLOW_IDS: {ident!r}: {reason}")
+            if result["errors"]:
+                return result
         candidate = copy.deepcopy(canvas)
         texts = [n for n in candidate["nodes"] if n["type"] == "text"]
         groups = [n for n in candidate["nodes"] if n["type"] == "group"]
@@ -26,7 +42,6 @@ def fix_and_verify(canvas_path, dry_run=False):
             if group.get("color") != "4":
                 result["fixes"].append(f"Group {group['id']}: color -> 4")
                 group["color"] = "4"
-        stale_ids = {s.strip() for s in os.environ.get("STALE_YELLOW_IDS", "").split(",") if s.strip()}
         changed_ids = set()
         for node in texts:
             if node["id"] in stale_ids and node.get("color") == "3":

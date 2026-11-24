@@ -124,6 +124,49 @@ class CanvasSafetyTests(unittest.TestCase):
         self.assertEqual(data["nodes"][1]["color"], "5")
         self.assertEqual(data["edges"][0]["color"], "5")
 
+    def run_color_cli(self, ids, *options):
+        return run_test_process(
+            [sys.executable, str(SCRIPTS / "fix-canvas-colors.py"), *options, str(self.path)],
+            capture_output=True, text=True, encoding="utf-8",
+            env=dict(os.environ, STALE_YELLOW_IDS=ids, PYTHONDONTWRITEBYTECODE="1"),
+        )
+
+    def test_invalid_stale_ids_block_all_changes_in_cli(self):
+        data = fixture()
+        data["nodes"].append(dict(data["nodes"][1], id="practice", color="4"))
+        original = json.dumps(data).encode("utf-8")
+        for ids, diagnostic in (
+            ("n,typo", "unknown node"),
+            ("n,g", "not a text node"),
+            ("n,practice", "not color 3 or 5"),
+        ):
+            for options in (("--dry-run",), ()):
+                with self.subTest(ids=ids, options=options):
+                    # Reset each baseline subtest even when the old CLI writes.
+                    for file in self.path.parent.glob("*.backup-*"):
+                        file.unlink()
+                    self.path.write_bytes(original)
+                    result = self.run_color_cli(ids, *options)
+                    self.assertEqual(
+                        (result.returncode, self.path.read_bytes(), sorted(self.path.parent.iterdir())),
+                        (1, original, [self.path]),
+                        result.stdout + result.stderr,
+                    )
+                    self.assertIn(diagnostic, result.stdout)
+
+    def test_stale_id_remains_valid_after_apply_in_cli(self):
+        result = self.run_color_cli("n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        after = self.path.read_bytes()
+        canvas = json.loads(after)
+        self.assertEqual(canvas["nodes"][1]["color"], "5")
+        self.assertEqual(canvas["edges"][0]["color"], "5")
+        self.assertEqual(len(list(self.path.parent.glob("*.backup-*"))), 1)
+        result = self.run_color_cli("n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.path.read_bytes(), after)
+        self.assertEqual(len(list(self.path.parent.glob("*.backup-*"))), 1)
+
     def test_failed_replace_preserves_original_and_backup(self):
         with patch.object(safety.os, "replace", side_effect=OSError("injected failure")):
             result = fixer.fix_and_verify(self.path)
