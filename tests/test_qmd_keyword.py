@@ -116,18 +116,56 @@ class QmdTests(unittest.TestCase):
         self.assertEqual(x['mode'],'literal');self.assertFalse(self.calls)
     def test_public_literal_matches_before_loading_next_source(self):
         events = []
-        class TracedText(str):
-            def splitlines(self):
-                events.append(('match', str(self)))
-                return super().splitlines()
+        source_lines = m._source_lines
+        def lines(text):
+            events.append(('match', text))
+            return source_lines(text)
         def read(root, name):
             events.append(('read', name))
-            return TracedText(name)
-        with mock.patch.object(m, '_read', side_effect=read):
+            return name
+        with mock.patch.object(m, '_read', side_effect=read), \
+                mock.patch.object(m, '_source_lines', side_effect=lines):
             result = m.search('not present', root=self.root, files=['a.md', 'b.md'])
         self.assertEqual(result['hits'], [])
         self.assertEqual(events, [('read', 'a.md'), ('match', 'a.md'),
                                   ('read', 'b.md'), ('match', 'b.md')])
+    def test_source_citations_count_only_physical_markdown_lines(self):
+        for ending in ('\n', '\r\n', '\r'):
+            with self.subTest(ending=repr(ending)):
+                lines = ['first\u2028line\u0085and\fhere', 'keyword target', 'after']
+                source = ending.join(lines) + ending
+                (self.root / 'a.md').write_bytes(source.encode('utf-8'))
+                expected = [{'file': 'a.md', 'line': 2, 'text': '\n'.join(lines)}]
+                literal = m.search('keyword', root=self.root, files=['a.md'])
+                self.assertEqual(literal['hits'], expected)
+                indexed = self.run_search(indexed_hashes={'a.md': m._hash(source)})
+                self.assertEqual(indexed['mode'], 'qmd-keyword')
+                self.assertEqual(indexed['hits'], expected)
+
+    def test_unicode_separators_inside_one_source_line_not_citation_boundaries(self):
+        source = 'before\u2028keyword\u0085after\fend'
+        (self.root / 'a.md').write_bytes(source.encode('utf-8'))
+        result = m.search('keyword', root=self.root, files=['a.md'])
+        self.assertEqual(result['hits'], [{'file': 'a.md', 'line': 1, 'text': source}])
+
+    def test_mixed_endings_and_terminal_newline_do_not_shift_citations(self):
+        source = 'intro\r\n\rkeyword target\n'
+        (self.root / 'a.md').write_bytes(source.encode('utf-8'))
+        expected = [{'file': 'a.md', 'line': 3, 'text': '\nkeyword target'}]
+        self.assertEqual(m.search('keyword', root=self.root, files=['a.md'])['hits'], expected)
+
+        def runner(line):
+            return lambda *args, **kwargs: SimpleNamespace(stdout=json.dumps(
+                [{'file': 'qmd://authorized/a.md', 'line': line}]))
+
+        snapshot = {'a.md': m._hash(source)}
+        indexed = self.run_search(runner=runner(3), indexed_hashes=snapshot)
+        self.assertEqual(indexed['mode'], 'qmd-keyword')
+        self.assertEqual(indexed['hits'], expected)
+        outside = self.run_search(runner=runner(4), indexed_hashes=snapshot)
+        self.assertEqual(outside['reason'], 'qmd-failed-or-source-unverified')
+        self.assertEqual(outside['hits'], expected)
+
     def test_public_literal_limit_preserves_late_unavailable(self):
         (self.root / 'invalid.md').write_bytes(b'\xff')
         (self.root / 'oversized.md').write_bytes(b'x' * (m.MAX_BYTES + 1))

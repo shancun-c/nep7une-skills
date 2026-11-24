@@ -169,8 +169,10 @@ not cross-platform acceptance. Two identified causes are addressed here:
 - Synthetic newline fixtures are written as explicit UTF-8 bytes, and indexed
   hashes use the same byte-preserving `_read` path as verification. Dedicated
   CRLF tests prove the hash matches the actual UTF-8 bytes and that an LF-normalized
-  hash cannot falsely authenticate a CRLF source. Line display may use splitlines;
-  evidence hashing never normalizes source newlines.
+  hash cannot falsely authenticate a CRLF source. Evidence hashing never
+  normalizes source newlines. Citation line numbers count physical Markdown
+  source lines (LF, CRLF, or CR), not rendered positions. Unicode separator
+  characters inside a line do not advance its citation number.
 
 The final Windows rerun below supersedes this stage. These fixes do not enable any public QMD path,
 read real vaults, or change the experimental deployment boundary.
