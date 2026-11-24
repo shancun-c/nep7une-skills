@@ -2,7 +2,7 @@
 
 Use this file to map this orchestration skill onto the execution capabilities available in the current runtime. Do not assume every runtime exposes the same companion skills.
 
-First complete [companion-preflight.md](companion-preflight.md). The reviewed kepano entrypoints and license are recorded in [kepano-baseline.json](kepano-baseline.json); installers do not enforce that revision.
+First complete [companion-preflight.md](companion-preflight.md). The five reviewed official `obsidianmd/obsidian-skills` tag `1.2.1` entrypoints and license are recorded in [kepano-baseline.json](kepano-baseline.json); installers do not enforce that revision.
 
 ## `obsidian`
 

@@ -10,6 +10,17 @@ license, and Git blob IDs of the five reviewed entrypoints. It is a review
 baseline, not an installation lock. The existing installers check presence,
 not provenance, and do not download these dependencies.
 
+The current static review is official `obsidianmd/obsidian-skills` tag `1.2.1`,
+commit `b110b2f8e9eb1f287892f937050dfd40af862cbb`, with entrypoints under
+`plugins/obsidian/skills/<name>/SKILL.md`. The filename is retained for existing
+links; its history preserves the 2026-11-06 review at
+`3ccff5338ea700537839b21900aa5358a0402c98`. The root MIT license blob is unchanged.
+The changed Markdown `references/PROPERTIES.md` blob is recorded separately;
+other previously reviewed reference contents are unchanged. This review does
+not add Headless or Knap to the five-skill scope and is not runtime compatibility
+certification. Upstream CLI examples do not relax the explicit vault and exact
+file-path gates below.
+
 Prefer these focused capabilities over copying their format rules here:
 
 - `obsidian-markdown`: note syntax.

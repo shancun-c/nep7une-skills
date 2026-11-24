@@ -152,7 +152,7 @@ Optional:
 
 - `anysearch`
 
-These companion skills may come from the public [`kepano/obsidian-skills`](https://github.com/kepano/obsidian-skills) ecosystem or from an environment that already bundles them.
+These companion skills may come from the official [`obsidianmd/obsidian-skills`](https://github.com/obsidianmd/obsidian-skills) repository or from an environment that already bundles them. The five-skill static review baseline is tag `1.2.1`; [kepano-baseline.json](skills/obsidian-wiki-skill/references/kepano-baseline.json) retains the historical review. This is a review reference, not an installation lock or runtime compatibility certification.
 
 ### Example Prompts
 
