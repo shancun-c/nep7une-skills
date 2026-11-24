@@ -50,7 +50,7 @@ The canvas is the **central visual interface** for the user's knowledge. Every k
 - `obsidian-wiki-skill` for vault orientation and source note processing
 - Filesystem tools for reading source notes and existing knowledge notes
 - `scripts/verify-canvas-colors.py` — verification-only; run after canvas writes to catch color errors
-- `scripts/fix-canvas-colors.py` — comprehensive fix + verify; use this for canvas maintenance (group colors, stale yellows, edge integrity). Pass `STALE_YELLOW_IDS=id1,id2` env var to revert stale nodes. Use `--dry-run` to preview without writing.
+- `scripts/fix-canvas-colors.py` — comprehensive fix + verify; use this for canvas maintenance (group colors, stale yellows, edge integrity). Pass `STALE_YELLOW_IDS=id1,id2` env var to revert stale nodes. Use `--dry-run` to preview without writing. Unknown IDs, non-text IDs, or text IDs with a color other than `"3"` or `"5"` stop both preview and repair before any changes. A text node already at `"5"` is accepted without being changed.
 - `references/canvas-state.md` — legacy example snapshot, not the current state of any vault. Verify current state from the actual canvas; preserve existing user-maintained state during upgrades.
 - `references/canvas-layout-repair.md` — programmatic canvas layout repair: node-to-group assignment, dynamic height recalculation, row-based reflow, overlap verification. Use when the canvas becomes visually broken (overlapping rows, wrong group sizes, nodes outside groups). Contains full Python script template.
 
