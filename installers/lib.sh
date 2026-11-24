@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+require_installer_value() {
+  local option="$1" value="$2"
+  # An option token must not be consumed as a value, especially --dry-run.
+  # Dash-prefixed relative paths can be supplied as ./-name.
+  if [[ -z "$value" || "$value" == -* ]]; then
+    printf 'Missing value for %s (use ./ for paths starting with a dash).\n' "$option" >&2
+    exit 2
+  fi
+}
+
 skill_dependencies() {
   local runtime="$1"
   local skill_name="$2"

@@ -40,6 +40,42 @@ class InstallerTargetPreviews(unittest.TestCase):
                         args = ['--skills-dir', str(skills_root), '--target', str(target)]
                     self.preview(runtime, skill, args, root, target)
 
+    def test_missing_value_cannot_consume_dry_run(self):
+        for runtime in RUNTIMES:
+            for option in ('--target', '--skills-dir'):
+                with self.subTest(runtime=runtime, option=option), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp).resolve()
+                    target = root / 'destination'
+                    if option == '--target' and runtime != 'openclaw':
+                        target /= 'obsidian-wiki-skill'
+                    env = dict(os.environ, HOME=str(root / 'home'),
+                               CODEX_HOME=str(root / 'codex-home'),
+                               HERMES_HOME=str(root / 'hermes-home'))
+                    result = run_test_process(
+                        ['bash', str(ROOT / 'installers' / f'install-{runtime}.sh'),
+                         option, '--dry-run', option, str(target), '--skip-deps'],
+                        capture_output=True, text=True, encoding='utf-8', env=env, cwd=root,
+                    )
+                    self.assertEqual(list(root.iterdir()), [], result.stdout + result.stderr)
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertIn(f'Missing value for {option}', result.stderr)
+
+    def test_dash_prefixed_path_with_explicit_relative_prefix(self):
+        for runtime in RUNTIMES:
+            with self.subTest(runtime=runtime), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                env = dict(os.environ, HOME=str(root / 'home'),
+                           CODEX_HOME=str(root / 'codex-home'),
+                           HERMES_HOME=str(root / 'hermes-home'))
+                result = run_test_process(
+                    ['bash', str(ROOT / 'installers' / f'install-{runtime}.sh'),
+                     '--skills-dir', './-skills', '--skip-deps', '--dry-run'],
+                    capture_output=True, text=True, encoding='utf-8', env=env, cwd=root,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('Dry run: no files, locks or directories written.', result.stdout)
+                self.assertEqual(list(root.iterdir()), [])
+
     def preview(self, runtime, skill, args, temporary_parent, target):
         env = dict(os.environ, HOME=str(temporary_parent / 'home'),
                    CODEX_HOME=str(temporary_parent / 'codex-home'),

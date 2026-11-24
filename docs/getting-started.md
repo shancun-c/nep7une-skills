@@ -58,6 +58,7 @@ selected skill name. Dependency lookup and backup placement still use the
 skills root; when overriding the target, set `--skills-dir` consistently too.
 For OpenClaw, `--target` means the **workspace**, so installation goes beneath
 `WORKSPACE/skills/nep7une-skills/<skill>`. Do not supply both OpenClaw target flags.
+If a relative path starts with a dash, pass it with a `./` prefix.
 
 ## Preview, then install one skill
 
