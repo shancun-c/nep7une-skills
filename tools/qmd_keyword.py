@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import stat
 import queue
+import re
 import threading
 import time
 from types import SimpleNamespace
@@ -161,6 +162,17 @@ def _read(root: Path, relative: str) -> str:
     return raw.decode('utf-8')
 
 
+_SOURCE_LINE_ENDING = re.compile(r'\r\n|[\r\n]')
+
+
+def _source_lines(text: str) -> List[str]:
+    """Split physical Markdown lines, preserving Unicode separators in content."""
+    lines = _SOURCE_LINE_ENDING.split(text)
+    if lines[-1] == '':
+        lines.pop()
+    return lines
+
+
 def _hash(text: str) -> str:
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
@@ -195,7 +207,7 @@ def _search_experiment(query: str, *, root: Path, files: List[str], enabled: boo
             # oversized, invalid-UTF-8 and unsafe paths keep their diagnostics.
             if len(hits) == limit:
                 continue
-            lines = text.splitlines()
+            lines = _source_lines(text)
             for i, line in enumerate(lines):
                 if folded_query in line.casefold():
                     hits.append({'file': name, 'line': i + 1, 'text': '\n'.join(lines[max(0,i-1):i+2])})
@@ -238,7 +250,7 @@ def _search_experiment(query: str, *, root: Path, files: List[str], enabled: boo
             original = _read(root, name)
             if _hash(original) != hashes[name]:
                 raise ValueError('source changed during search')
-            lines = original.splitlines()
+            lines = _source_lines(original)
             if line > len(lines):
                 raise ValueError('source line unavailable')
             if name not in seen:
