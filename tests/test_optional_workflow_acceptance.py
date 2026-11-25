@@ -82,6 +82,33 @@ class OptionalWorkflowAcceptanceTests(unittest.TestCase):
             b"    " + line if line else line for line in prose.split(b"\n"))
         self.assert_pass(ACCEPTANCE.check_markdown(visible_prose + b"| Year" + table))
 
+    def test_comment_blocks_cannot_supply_source_text_or_table(self):
+        prose, table = markdown().split(b"| Year", 1)
+        for content in (
+            b"<!--\n" + markdown() + b"-->\n",
+            b"   <!--\n" + markdown(),
+            prose + b"<!--\n| Year" + table + b"-->\n",
+            b"<!--\n" + prose + b"-->\n\n| Year" + table,
+        ):
+            with self.subTest(content=content[:40]):
+                self.assert_unverified(ACCEPTANCE.check_markdown(content))
+
+    def test_comment_and_fence_markers_do_not_escape_each_other(self):
+        for content in (
+            b"<!--\n```\n-->\n" + markdown(),
+            b"```text\n<!--\n```\n" + markdown(),
+            b"<!-- ignored -->\n\n" + markdown(),
+        ):
+            with self.subTest(content=content[:40]):
+                self.assert_pass(ACCEPTANCE.check_markdown(content))
+        content = b"<!--\n```\n" + markdown() + b"```\n-->\n"
+        self.assert_unverified(ACCEPTANCE.check_markdown(content))
+
+    def test_comment_gap_does_not_join_table_rows(self):
+        content = markdown().replace(b"| 2026", b"<!-- hidden gap -->\n| 2026")
+        self.assertEqual(ACCEPTANCE.check_markdown(content)["reason"],
+                         "table_requires_review")
+
     def test_missing_unicode_source_text(self):
         self.assert_unverified(ACCEPTANCE.check_markdown(markdown().replace(
             ACCEPTANCE.REQUIRED_TEXT[1].encode("utf-8"), b"")))
