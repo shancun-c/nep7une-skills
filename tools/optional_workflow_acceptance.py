@@ -47,15 +47,22 @@ _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
 def _visible_fixture_lines(text):
-    """Ignore unprefixed fenced blocks, not all Markdown container syntax."""
+    """Ignore plain fences and top-level HTML comment blocks, not general Markdown."""
     fence = None
+    comment = False
     for line in text.splitlines():
         match = _FENCE.fullmatch(line)
-        if fence is not None:
+        if comment:
+            comment = "-->" not in line
+            yield ""
+        elif fence is not None:
             if match:
                 run, tail = match.groups()
                 if run[0] == fence[0] and len(run) >= len(fence) and not tail.strip(" \t"):
                     fence = None
+            yield ""
+        elif re.match(r"^ {0,3}<!--", line):
+            comment = "-->" not in line[line.index("<!--") + 4:]
             yield ""
         elif match and (match[1][0] == "~" or "`" not in match[2]):
             fence = match[1]
