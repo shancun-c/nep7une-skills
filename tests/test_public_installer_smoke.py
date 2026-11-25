@@ -63,3 +63,36 @@ class PublicInstallerSmoke(unittest.TestCase):
                         if initial_marker is not None:
                             self.assertEqual(raw_marker, initial_marker)
                         initial_marker = raw_marker
+
+    def test_preview_and_reinstall_refuse_existing_lock_without_writes(self):
+        for runtime in ('codex', 'hermes', 'openclaw'):
+            with self.subTest(runtime=runtime), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                skills_root = root / 'isolated skills'
+                target = skills_root / COLLECTION / SKILL
+                env = {'PATH': os.environ.get('PATH', os.defpath),
+                       'HOME': str(root / 'home'), 'CODEX_HOME': str(root / 'codex'),
+                       'HERMES_HOME': str(root / 'hermes')}
+                command = [BASH, str(REPO / 'installers' / f'install-{runtime}.sh'),
+                           '--skills-dir', str(skills_root), '--skill', SKILL, '--skip-deps']
+                def snapshot():
+                    return {p.relative_to(root).as_posix():
+                            (p.stat().st_mode, p.read_bytes() if p.is_file() else None)
+                            for p in root.rglob('*')}
+                result = run_test_process(command, cwd=root, env=env, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                before = snapshot()
+                result = run_test_process(command + ['--dry-run'], cwd=root, env=env, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(snapshot(), before)
+                lock = target.with_name('.' + target.name + '.install-lock')
+                lock.mkdir()
+                (lock / 'owner-note').write_bytes(b'leave lock alone')
+                before = snapshot()
+                results = [run_test_process(command + extra, cwd=root, env=env, text=True)
+                           for extra in (['--dry-run'], [])]
+                self.assertEqual(snapshot(), before)
+                for result in results:
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn('install-lock', result.stderr)
+                    self.assertNotIn('Traceback', result.stderr)
