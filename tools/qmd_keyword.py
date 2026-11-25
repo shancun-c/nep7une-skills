@@ -145,12 +145,16 @@ def _read(root: Path, relative: str) -> str:
     flags = os.O_RDONLY + getattr(os, 'O_BINARY', 0)
     flags += getattr(os, 'O_NONBLOCK', 0) + getattr(os, 'O_NOFOLLOW', 0)
     fd = os.open(p, flags)
-    with os.fdopen(fd, 'rb') as f:
-        opened = os.fstat(f.fileno())
-        if not stat.S_ISREG(opened.st_mode) or cross_fields(opened) != cross_fields(before):
-            raise ValueError('source changed before read')
-        raw = f.read(MAX_BYTES + 1)
-        finished = os.fstat(f.fileno())
+    # The outer scope owns fd even if wrapping it fails.
+    try:
+        with os.fdopen(fd, 'rb', closefd=False) as f:
+            opened = os.fstat(f.fileno())
+            if not stat.S_ISREG(opened.st_mode) or cross_fields(opened) != cross_fields(before):
+                raise ValueError('source changed before read')
+            raw = f.read(MAX_BYTES + 1)
+            finished = os.fstat(f.fileno())
+    finally:
+        os.close(fd)
     after = checked_stat(p)
     final_parent_ids = [(s.st_dev, s.st_ino) for s in
                         (checked_stat(parent, directory=True) for parent in parents)]

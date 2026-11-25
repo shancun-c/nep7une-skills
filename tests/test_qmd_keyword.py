@@ -20,6 +20,41 @@ class QmdTests(unittest.TestCase):
         self.assertFalse(m._is_within(self.root.with_name(self.root.name + '-other'), self.root))
         self.assertEqual(m._read(self.root, 'a.md'), '# Synthetic\n关键词 keyword\n')
 
+    def test_public_search_owns_source_descriptor_on_wrapper_failure_and_success(self):
+        real_open, real_close, real_fdopen = m.os.open, m.os.close, m.os.fdopen
+        for fails in (True, False):
+            with self.subTest(wrapper_fails=fails):
+                descriptors = []
+                def track_open(*args, **kwargs):
+                    fd = real_open(*args, **kwargs)
+                    descriptors.append(fd)
+                    return fd
+                try:
+                    with mock.patch.object(m.os, 'open', side_effect=track_open), \
+                            mock.patch.object(m.os, 'close', wraps=real_close) as close, \
+                            mock.patch.object(m.os, 'fdopen', side_effect=(
+                                OSError('synthetic wrapper failure') if fails else real_fdopen)) as wrap:
+                        result = m.search('keyword', root=self.root, files=['a.md'])
+                    self.assertEqual(len(descriptors), 1)
+                    close.assert_called_once_with(descriptors[0])
+                    wrap.assert_called_once_with(descriptors[0], 'rb', closefd=False)
+                    with self.assertRaises(OSError):
+                        m.os.fstat(descriptors[0])
+                    self.assertEqual(result, {
+                        'mode': 'literal', 'reason': 'qmd-disabled',
+                        'hits': [] if fails else [{'file': 'a.md', 'line': 2,
+                                                  'text': '# Synthetic\n关键词 keyword'}],
+                        'unavailable': ['a.md'] if fails else [],
+                    })
+                finally:
+                    # Keep the regression safe even against the leaking baseline.
+                    for fd in descriptors:
+                        try:
+                            m.os.fstat(fd)
+                        except OSError:
+                            continue
+                        real_close(fd)
+
     def test_no_python39_path_api_in_qmd_modules(self):
         import ast
         for name in ['qmd_keyword.py', 'qmd_index_experiment.py', 'qmd_generation.py']:
