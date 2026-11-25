@@ -183,11 +183,13 @@ def install(repo, source, target, root, skill, collection, dry_run=False):
         # An obstructed backup path makes this replacement impossible even
         # before any staging. Validate the same path during preview and install.
         check_backup_root(root, target)
+    lock = target.with_name('.' + target.name + '.install-lock')
     if dry_run:
+        if os.path.lexists(lock):
+            raise ValueError(f'Installation lock already exists: {lock}')
         print('Dry run: no files, locks or directories written.')
         return
     target.parent.mkdir(parents=True, exist_ok=True)
-    lock = target.with_name('.' + target.name + '.install-lock')
     stage = None
     backup = None
     lock.mkdir()  # Exclusive; stale locks require manual inspection, never auto-delete.

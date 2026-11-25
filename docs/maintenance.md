@@ -15,6 +15,10 @@ backups are not a substitute for a vault backup.
    When an existing target needs replacement, dry run rejects a known backup
    path obstruction (such as a file in place of the backup directory). It does
    not test write permissions or whether a directory rename will succeed.
+   Preview also refuses an existing installation lock, even for unchanged packages.
+   It leaves the lock untouched and does not determine whether it is active or stale.
+   A successful preview does not reserve the target; installation still acquires
+   its lock atomically and may refuse if another installer takes it meanwhile.
 4. Remove `--dry-run` only after the preview succeeds and the target is correct.
 5. Confirm installed files, local configuration/state, and runtime discovery.
    Validate in a test vault before using personal data.
